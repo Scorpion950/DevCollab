@@ -1,0 +1,369 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// ENUMS
+// =============================================
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum Priority {
+  P0
+  P1
+  P2
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_MOVED
+  COMMENT_MENTION
+  DOC_UPDATED
+  MEMBER_JOINED
+  INVITE_ACCEPTED
+}
+
+// =============================================
+// USER
+// =============================================
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  passwordHash   String
+  avatar         String?
+  bio            String?
+  skills         String[]
+  githubUrl      String?
+  plan           Plan     @default(FREE)
+  aiUsageToday   Int      @default(0)
+  aiLastUsedAt   DateTime?
+  emailVerified  Boolean  @default(false)
+  verifyToken    String?
+  resetToken     String?
+  resetTokenExp  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  ownedWorkspaces    Workspace[]          @relation("WorkspaceOwner")
+  workspaceMemberships WorkspaceMember[]
+  projectMemberships ProjectMember[]
+  assignedTasks      Task[]               @relation("TaskAssignee")
+  reportedTasks      Task[]               @relation("TaskReporter")
+  taskComments       TaskComment[]
+  taskAttachments    TaskAttachment[]
+  wikiPages          WikiPage[]
+  wikiVersions       WikiVersion[]
+  snippets           Snippet[]
+  notifications      Notification[]
+  activityLogs       ActivityLog[]
+  subscription       Subscription?
+
+  @@index([email])
+}
+
+// =============================================
+// WORKSPACE
+// =============================================
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  logo        String?
+  plan        Plan     @default(FREE)
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner   User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members WorkspaceMember[]
+  projects Project[]
+  invites  WorkspaceInvite[]
+  activityLogs ActivityLog[]
+
+  @@index([slug])
+  @@index([ownerId])
+}
+
+model WorkspaceMember {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        Role     @default(MEMBER)
+  joinedAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+model WorkspaceInvite {
+  id          String   @id @default(cuid())
+  workspaceId String
+  email       String
+  role        Role     @default(MEMBER)
+  token       String   @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([workspaceId])
+}
+
+// =============================================
+// PROJECT
+// =============================================
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String   @default("#7C3AED")
+  emoji       String?
+  workspaceId String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members      ProjectMember[]
+  tasks        Task[]
+  wikiPages    WikiPage[]
+  snippets     Snippet[]
+  activityLogs ActivityLog[]
+
+  @@index([workspaceId])
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      Role     @default(MEMBER)
+  joinedAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+// =============================================
+// TASK
+// =============================================
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    Priority   @default(P2)
+  order       Int        @default(0)
+  dueDate     DateTime?
+  labels      String[]
+  projectId   String
+  assigneeId  String?
+  reporterId  String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee    User?           @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  reporter    User            @relation("TaskReporter", fields: [reporterId], references: [id])
+  comments    TaskComment[]
+  attachments TaskAttachment[]
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([status])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  content   String
+  mentions  String[]
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model TaskAttachment {
+  id           String   @id @default(cuid())
+  taskId       String
+  url          String
+  filename     String
+  fileSize     Int
+  mimeType     String
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+}
+
+// =============================================
+// WIKI
+// =============================================
+
+model WikiPage {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @default("")
+  projectId String
+  parentId  String?
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project  Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author   User         @relation(fields: [authorId], references: [id])
+  parent   WikiPage?    @relation("WikiPageChildren", fields: [parentId], references: [id])
+  children WikiPage[]   @relation("WikiPageChildren")
+  versions WikiVersion[]
+
+  @@index([projectId])
+  @@index([parentId])
+}
+
+model WikiVersion {
+  id        String   @id @default(cuid())
+  pageId    String
+  content   String
+  savedById String
+  createdAt DateTime @default(now())
+
+  page    WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  savedBy User     @relation(fields: [savedById], references: [id])
+
+  @@index([pageId])
+}
+
+// =============================================
+// SNIPPET
+// =============================================
+
+model Snippet {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  code        String
+  language    String
+  tags        String[]
+  projectId   String
+  authorId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@index([projectId])
+  @@index([authorId])
+}
+
+// =============================================
+// NOTIFICATIONS
+// =============================================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  message   String
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+}
+
+// =============================================
+// ACTIVITY LOG
+// =============================================
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  userId      String
+  action      String
+  entityType  String
+  entityId    String
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project?  @relation(fields: [projectId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// =============================================
+// SUBSCRIPTION (STRIPE)
+// =============================================
+
+model Subscription {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  stripeCustomerId   String    @unique
+  stripeSubId        String?   @unique
+  plan               Plan      @default(FREE)
+  status             String    @default("active")
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
