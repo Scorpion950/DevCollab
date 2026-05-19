@@ -10,7 +10,7 @@ import {
 import { sendSuccess, sendError, sanitizeUser } from '../lib/helpers';
 import { authenticate } from '../middleware/auth';
 
-const router = Router();
+const router: Router = Router();
 
 // =============================================
 // VALIDATION SCHEMAS

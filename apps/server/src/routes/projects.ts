@@ -1,11 +1,11 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { sendSuccess, sendError } from '../lib/helpers';
 import { authenticate } from '../middleware/auth';
 import { requireWorkspaceRole, requireProjectRole } from '../middleware/roles';
 
-const router = Router({ mergeParams: true });
+const router: Router = Router({ mergeParams: true });
 
 router.use(authenticate);
 

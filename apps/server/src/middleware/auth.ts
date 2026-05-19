@@ -49,3 +49,6 @@ export function optionalAuthenticate(
   }
   next();
 }
+
+export const auth = authenticate;
+export const optionalAuth = optionalAuthenticate;

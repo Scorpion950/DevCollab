@@ -11,8 +11,18 @@ import { Server as SocketServer } from 'socket.io';
 import authRouter from './routes/auth';
 import workspacesRouter from './routes/workspaces';
 import projectsRouter from './routes/projects';
+import tasksRouter from './routes/tasks';
+import notificationsRouter from './routes/notifications';
+import presenceRouter from './routes/presence';
+import wikiRouter from './routes/wiki';
+import snippetsRouter from './routes/snippets';
+import activityRouter from './routes/activity';
+import uploadsRouter from './routes/uploads';
+import { setupBoardSocket } from './socket/board';
+import { setupNotificationSocket } from './socket/notifications';
+import { setupPresenceSocket } from './socket/presence';
 
-const app = express();
+const app: express.Application = express();
 const httpServer = http.createServer(app);
 
 // =============================================
@@ -74,6 +84,17 @@ const authLimiter = rateLimit({
 app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/workspaces', workspacesRouter);
 app.use('/api/workspaces/:workspaceId/projects', projectsRouter);
+app.use('/api/tasks', tasksRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/presence', presenceRouter);
+app.use('/api/wiki', wikiRouter);
+app.use('/api/snippets', snippetsRouter);
+app.use('/api/activity', activityRouter);
+app.use('/api/uploads', uploadsRouter);
+
+setupBoardSocket(io);
+setupNotificationSocket(io);
+setupPresenceSocket(io);
 
 // Health check
 app.get('/health', (_req, res) => {

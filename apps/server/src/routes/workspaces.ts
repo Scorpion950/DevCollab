@@ -5,7 +5,7 @@ import { sendSuccess, sendError, generateSlug, generateToken } from '../lib/help
 import { authenticate } from '../middleware/auth';
 import { requireWorkspaceRole } from '../middleware/roles';
 
-const router = Router();
+const router: Router = Router();
 
 // All workspace routes require authentication
 router.use(authenticate);

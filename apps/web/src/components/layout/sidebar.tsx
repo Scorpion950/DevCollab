@@ -35,10 +35,10 @@ export function Sidebar() {
   const workspaces: (Workspace & { myRole: string })[] = workspacesData || [];
 
   const { data: projectsData } = useQuery({
-    queryKey: ['projects', [...expandedWorkspaces]],
+    queryKey: ['projects', Array.from(expandedWorkspaces)],
     queryFn: async () => {
       const results: Record<string, Project[]> = {};
-      for (const wsId of expandedWorkspaces) {
+      for (const wsId of Array.from(expandedWorkspaces)) {
         const r = await api.get(`/workspaces/${wsId}/projects`);
         results[wsId] = r.data.data;
       }

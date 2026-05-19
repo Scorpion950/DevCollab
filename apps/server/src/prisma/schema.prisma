@@ -79,12 +79,13 @@ model User {
   reportedTasks      Task[]               @relation("TaskReporter")
   taskComments       TaskComment[]
   taskAttachments    TaskAttachment[]
-  wikiPages          WikiPage[]
-  wikiVersions       WikiVersion[]
+  wikiPages          WikiPage[]           @relation("WikiPageAuthor")
+  wikiVersions       WikiVersion[]        @relation("WikiVersionAuthor")
   snippets           Snippet[]
   notifications      Notification[]
   activityLogs       ActivityLog[]
   subscription       Subscription?
+  presences          Presence[]
 
   @@index([email])
 }
@@ -165,6 +166,7 @@ model Project {
   wikiPages    WikiPage[]
   snippets     Snippet[]
   activityLogs ActivityLog[]
+  presences    Presence[]
 
   @@index([workspaceId])
 }
@@ -252,7 +254,9 @@ model TaskAttachment {
 model WikiPage {
   id        String   @id @default(cuid())
   title     String
+  slug      String   // URL-friendly version
   content   String   @default("")
+  order     Int      @default(0) // Ordering within parent
   projectId String
   parentId  String?
   authorId  String
@@ -260,11 +264,12 @@ model WikiPage {
   updatedAt DateTime @updatedAt
 
   project  Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  author   User         @relation(fields: [authorId], references: [id])
-  parent   WikiPage?    @relation("WikiPageChildren", fields: [parentId], references: [id])
-  children WikiPage[]   @relation("WikiPageChildren")
+  author   User         @relation("WikiPageAuthor", fields: [authorId], references: [id])
+  parent   WikiPage?    @relation("WikiPageNesting", fields: [parentId], references: [id], onDelete: SetNull)
+  children WikiPage[]   @relation("WikiPageNesting")
   versions WikiVersion[]
 
+  @@unique([projectId, slug])
   @@index([projectId])
   @@index([parentId])
 }
@@ -272,14 +277,15 @@ model WikiPage {
 model WikiVersion {
   id        String   @id @default(cuid())
   pageId    String
-  content   String
-  savedById String
+  content   String   // Tiptap JSON (snapshot)
+  authorId  String
   createdAt DateTime @default(now())
 
-  page    WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  savedBy User     @relation(fields: [savedById], references: [id])
+  page   WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  author User     @relation("WikiVersionAuthor", fields: [authorId], references: [id])
 
   @@index([pageId])
+  @@index([createdAt])
 }
 
 // =============================================
@@ -333,14 +339,15 @@ model ActivityLog {
   workspaceId String
   projectId   String?
   userId      String
-  action      String
-  entityType  String
-  entityId    String
-  metadata    Json     @default("{}")
-  createdAt   DateTime @default(now())
+  action      String        // "created", "updated", "deleted", "moved", "commented"
+  entityType  String        // "task", "wiki_page", "snippet", "project"
+  entityId    String        // Task ID, Page ID, etc.
+  entityName  String?       // "Task Title" or "Page Name"
+  metadata    Json          @default("{}") // JSON diff or additional context
+  createdAt   DateTime      @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project   Project?  @relation(fields: [projectId], references: [id])
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
   user      User      @relation(fields: [userId], references: [id])
 
   @@index([workspaceId])
@@ -366,4 +373,23 @@ model Subscription {
   updatedAt          DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// =============================================
+// PRESENCE (REAL-TIME VIEWERS)
+// =============================================
+
+model Presence {
+  id            String   @id @default(cuid())
+  userId        String
+  projectId     String
+  viewingTaskId String?
+  lastSeenAt    DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([projectId])
 }

@@ -113,3 +113,78 @@ export function requireProjectRole(minRole: Role) {
     next();
   };
 }
+
+export async function checkProjectMember(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  return checkProjectMemberWithRole('VIEWER')(req, res, next);
+}
+
+export function checkProjectMemberWithRole(minRole: Role) {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    const userId = req.user?.userId;
+    let projectId =
+      (req.params.projectId as string | undefined) ||
+      ((req.body as Record<string, unknown>).projectId as string | undefined) ||
+      (req.query.projectId as string | undefined);
+
+    if (!projectId && req.params.taskId) {
+      const task = await prisma.task.findUnique({
+        where: { id: req.params.taskId as string },
+        select: { projectId: true },
+      });
+      projectId = task?.projectId;
+    }
+
+    if (!userId || !projectId) {
+      sendError(res, 'Unauthorized', 401);
+      return;
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { workspaceId: true },
+    });
+
+    if (!project) {
+      sendError(res, 'Project not found', 404);
+      return;
+    }
+
+    const workspaceMember = await prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: {
+          workspaceId: project.workspaceId,
+          userId,
+        },
+      },
+    });
+
+    if (workspaceMember && hasRole(workspaceMember.role, 'ADMIN')) {
+      next();
+      return;
+    }
+
+    const projectMember = await prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId } },
+    });
+
+    if (!projectMember) {
+      sendError(res, 'You are not a member of this project', 403);
+      return;
+    }
+
+    if (!hasRole(projectMember.role, minRole)) {
+      sendError(res, `Requires at least ${minRole} role in this project`, 403);
+      return;
+    }
+
+    next();
+  };
+}
