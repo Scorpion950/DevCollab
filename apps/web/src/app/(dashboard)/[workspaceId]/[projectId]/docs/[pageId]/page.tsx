@@ -137,9 +137,9 @@ export default function WikiPageDetailPage() {
           isEditable={true}
         />
       ) : (
-        <div className="bg-slate-900 rounded-lg p-6 border border-slate-700">
+        <div className="bg-bg-surface rounded-lg p-6 border border-border shadow-sm">
           <div
-            className="prose prose-invert max-w-none"
+            className="prose prose-invert max-w-none text-text-primary"
             dangerouslySetInnerHTML={{ __html: content }}
           />
         </div>

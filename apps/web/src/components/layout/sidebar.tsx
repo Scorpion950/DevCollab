@@ -87,10 +87,18 @@ export function Sidebar() {
 
   return (
     <>
+      {/* Mobile backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/50 z-30" 
+          onClick={useUIStore.getState().toggleSidebar}
+        />
+      )}
       <aside
         className={cn(
           "flex flex-col border-r border-border bg-bg-surface transition-all duration-300 overflow-hidden",
-          !isSidebarOpen && "border-r-0 opacity-0"
+          "absolute md:relative z-40 h-full", // Overlay on mobile
+          !isSidebarOpen && "border-r-0 opacity-0 -translate-x-full md:translate-x-0" // Hide completely on mobile if closed
         )}
         style={{ 
           width: isSidebarOpen ? 'var(--sidebar-width)' : '0px', 

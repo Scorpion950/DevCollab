@@ -3,11 +3,15 @@
 import { useBoard } from "@/hooks/useBoard";
 import { useParams } from "next/navigation";
 import { format } from "date-fns";
+import { useState } from "react";
+import { TaskDetailModal } from "@/components/board/TaskDetailModal";
 
 export default function ListPage() {
   const params = useParams();
   const projectId = params.projectId as string;
+  const workspaceId = params.workspaceId as string;
   const { tasks, isLoading } = useBoard(projectId);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   if (isLoading) return <div className="p-8">Loading list...</div>;
 
@@ -34,7 +38,11 @@ export default function ListPage() {
           </thead>
           <tbody className="bg-bg-surface divide-y divide-border">
             {tasks.map((t) => (
-              <tr key={t.id} className="hover:bg-bg-elevated transition-colors">
+              <tr 
+                key={t.id} 
+                className="hover:bg-bg-elevated transition-colors cursor-pointer"
+                onClick={() => setSelectedTaskId(t.id)}
+              >
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
                   {t.title}
                 </td>
@@ -78,6 +86,14 @@ export default function ListPage() {
           </tbody>
         </table>
       </div>
+      {selectedTaskId && (
+        <TaskDetailModal
+          taskId={selectedTaskId}
+          projectId={projectId}
+          workspaceId={workspaceId}
+          onClose={() => setSelectedTaskId(null)}
+        />
+      )}
     </div>
   );
 }

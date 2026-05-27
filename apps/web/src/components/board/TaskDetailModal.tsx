@@ -94,7 +94,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="bg-surface-elevated border-border"
+              className="bg-bg-elevated border-border"
             />
           </div>
 
@@ -104,7 +104,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="bg-surface-elevated border-border min-h-32"
+              className="bg-bg-elevated border-border min-h-32"
               placeholder="Add task description..."
             />
           </div>
@@ -139,7 +139,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   dueDate: e.target.value ? new Date(e.target.value) : null,
                 })
               }
-              className="bg-surface-elevated border-border"
+              className="bg-bg-elevated border-border"
             />
           </div>
 

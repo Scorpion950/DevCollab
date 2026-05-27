@@ -2,8 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import prisma from "../lib/prisma";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-// Use gemini-2.0-flash for latest free capabilities
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+// Use gemini-1.5-flash for more generous free capabilities
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 export class AIService {
   static async checkCredits(workspaceId: string) {

@@ -27,14 +27,16 @@ export default function CalendarPage() {
 
   const events = useMemo(() => {
     return tasks
-      .filter((t) => t.dueDate)
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        start: new Date(t.dueDate!),
-        end: new Date(t.dueDate!),
-        allDay: true,
-      }));
+      .map((t) => {
+        const dateToUse = t.dueDate ? new Date(t.dueDate) : new Date(t.createdAt);
+        return {
+          id: t.id,
+          title: t.title,
+          start: dateToUse,
+          end: dateToUse,
+          allDay: true,
+        };
+      });
   }, [tasks]);
 
   if (isLoading) return <div className="p-8">Loading calendar...</div>;

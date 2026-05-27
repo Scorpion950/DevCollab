@@ -53,7 +53,7 @@ export function WikiEditor({ content, onChange, isEditable = true }: WikiEditorP
   return (
     <div className="space-y-2">
       {isEditable && (
-        <div className="flex gap-1 flex-wrap p-2 border border-slate-700 rounded-t-lg bg-slate-900">
+        <div className="flex gap-1 flex-wrap p-2 border border-border rounded-t-lg bg-bg-elevated">
           <Button
             size="sm"
             variant={editor.isActive('bold') ? 'default' : 'ghost'}
@@ -98,7 +98,7 @@ export function WikiEditor({ content, onChange, isEditable = true }: WikiEditorP
       )}
       <EditorContent
         editor={editor}
-        className={`prose prose-invert max-w-none p-4 border border-slate-700 rounded-lg bg-slate-900 text-slate-100 min-h-96 overflow-auto ${
+        className={`prose prose-invert max-w-none p-4 border border-border rounded-lg bg-bg-surface text-text-primary min-h-[24rem] overflow-auto focus:outline-none ${
           isEditable ? 'rounded-t-none border-t-0' : ''
         }`}
       />
