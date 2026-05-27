@@ -247,6 +247,17 @@ code, pre {
   .status-in-review   { @apply badge badge-amber; }
   .status-done        { @apply badge badge-green; }
 
+  /* Calendar Variables for dark mode */
+  .dark-calendar .rbc-month-view, .dark-calendar .rbc-time-view, .dark-calendar .rbc-agenda-view { @apply border-border rounded-xl overflow-hidden; }
+  .dark-calendar .rbc-off-range-bg { @apply bg-transparent opacity-50; }
+  .dark-calendar .rbc-today { @apply bg-primary/10; }
+  .dark-calendar .rbc-header { @apply py-2 border-border text-sm font-semibold; }
+  .dark-calendar .rbc-day-bg + .rbc-day-bg, .dark-calendar .rbc-month-row + .rbc-month-row { @apply border-border; }
+  .dark-calendar .rbc-event { @apply bg-primary rounded px-2 py-1 text-xs text-white border border-primary-hover; }
+  .dark-calendar .rbc-toolbar button { @apply btn btn-ghost text-text-primary px-3 py-1 rounded-md border border-border; }
+  .dark-calendar .rbc-toolbar button:active, .dark-calendar .rbc-toolbar button.rbc-active { @apply bg-primary text-white border-primary-hover; }
+  .dark-calendar .rbc-toolbar button:hover { @apply bg-bg-elevated border-border-strong; }
+
   /* Avatar */
   .avatar {
     @apply rounded-full object-cover bg-primary/20 flex-shrink-0;

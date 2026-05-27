@@ -18,6 +18,7 @@ import wikiRouter from './routes/wiki';
 import snippetsRouter from './routes/snippets';
 import activityRouter from './routes/activity';
 import uploadsRouter from './routes/uploads';
+import { aiRouter } from './routes/ai';
 import { setupBoardSocket } from './socket/board';
 import { setupNotificationSocket } from './socket/notifications';
 import { setupPresenceSocket } from './socket/presence';
@@ -91,6 +92,7 @@ app.use('/api/wiki', wikiRouter);
 app.use('/api/snippets', snippetsRouter);
 app.use('/api/activity', activityRouter);
 app.use('/api/uploads', uploadsRouter);
+app.use('/api/ai', aiRouter);
 
 setupBoardSocket(io);
 setupNotificationSocket(io);
