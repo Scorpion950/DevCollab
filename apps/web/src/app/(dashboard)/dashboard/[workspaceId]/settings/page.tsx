@@ -9,11 +9,13 @@ import { WorkspaceWithMembers } from '@devcollab/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useAuthStore } from '@/store/auth.store';
 
 export default function WorkspaceSettingsPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -77,7 +79,7 @@ export default function WorkspaceSettingsPage() {
   }
 
   // Check if current user is owner/admin
-  const currentUserRole = workspace?.members.find((m: any) => m.userId === queryClient.getQueryData(['user'])?.id)?.role;
+  const currentUserRole = workspace?.members.find((m: any) => m.userId === user?.id)?.role;
   const isOwner = currentUserRole === 'OWNER';
   const isAdminOrOwner = isOwner || currentUserRole === 'ADMIN';
 
