@@ -1,5 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { Notification, NotificationType } from '@prisma/client';
+import { io } from '../index';
+import { sendNotificationToUser } from '../socket/notifications';
 
 export class NotificationService {
   // Create notification
@@ -9,7 +11,7 @@ export class NotificationService {
     message: string,
     link?: string
   ): Promise<Notification> {
-    return prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: {
         userId,
         type,
@@ -18,6 +20,13 @@ export class NotificationService {
         read: false,
       },
     });
+
+    // Emit real-time notification
+    sendNotificationToUser(io, userId, notification).catch((err) => 
+      console.error('Failed to emit notification socket:', err)
+    );
+
+    return notification;
   }
 
   // Get user notifications

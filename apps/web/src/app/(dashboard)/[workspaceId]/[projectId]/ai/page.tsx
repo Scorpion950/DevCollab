@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/api";
+import { useAIStore } from "@/store/ai.store";
 import {
   Cpu, Zap, ShieldAlert, FileText, Mic2, Code2, Sparkles,
   AlertCircle, CheckCircle2, Lightbulb, Star, Loader2, ChevronRight
@@ -203,12 +204,21 @@ export default function AIPage() {
   const projectId = params.projectId as string;
   const workspaceId = params.workspaceId as string;
 
+  const { getProjectAIState, updateProjectAIState } = useAIStore();
+  const aiState = getProjectAIState(projectId);
+
   const [loading, setLoading] = useState(false);
-  const [activeAction, setActiveAction] = useState<AIAction | null>(null);
-  const [result, setResult] = useState<AIResult | null>(null);
-  const [codeContent, setCodeContent] = useState("");
-  const [codeLanguage, setCodeLanguage] = useState("javascript");
-  const [taskDesc, setTaskDesc] = useState("");
+  const activeAction = aiState.activeAction;
+  const result = aiState.result;
+  const codeContent = aiState.codeContent;
+  const codeLanguage = aiState.codeLanguage;
+  const taskDesc = aiState.taskDesc;
+
+  const setActiveAction = (action: AIAction | null) => updateProjectAIState(projectId, { activeAction: action });
+  const setResult = (res: any) => updateProjectAIState(projectId, { result: res });
+  const setCodeContent = (content: string) => updateProjectAIState(projectId, { codeContent: content });
+  const setCodeLanguage = (lang: string) => updateProjectAIState(projectId, { codeLanguage: lang });
+  const setTaskDesc = (desc: string) => updateProjectAIState(projectId, { taskDesc: desc });
 
   const runAction = async (action: AIAction, payload: Record<string, string> = {}) => {
     setLoading(true);

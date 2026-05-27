@@ -3,7 +3,7 @@
 import { useParams, usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { FolderKanban, FileText, Code2, Cpu, LayoutGrid, List, Calendar } from 'lucide-react';
+import { FolderKanban, FileText, Code2, Cpu, LayoutGrid, List, Calendar, Users } from 'lucide-react';
 import api from '@/lib/api';
 import { Project } from '@devcollab/types';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ const PROJECT_TABS = [
   { id: 'docs', label: 'Docs', icon: FileText, href: 'docs' },
   { id: 'snippets', label: 'Snippets', icon: Code2, href: 'snippets' },
   { id: 'ai', label: 'AI Assistant', icon: Cpu, href: 'ai' },
+  { id: 'members', label: 'Members', icon: Users, href: 'members' },
 ];
 
 export default function ProjectLayout({

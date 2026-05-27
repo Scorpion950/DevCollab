@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Kanban, List, Calendar, FileText, Code, Sparkles } from "lucide-react";
+import { Kanban, List, Calendar, FileText, Code, Sparkles, Users } from "lucide-react";
 
 export function ProjectTabs() {
   const pathname = usePathname();
@@ -19,6 +19,7 @@ export function ProjectTabs() {
     { name: "Docs", href: `/dashboard/${workspaceId}/${projectId}/docs`, icon: FileText },
     { name: "Snippets", href: `/dashboard/${workspaceId}/${projectId}/snippets`, icon: Code },
     { name: "AI Hub", href: `/dashboard/${workspaceId}/${projectId}/ai`, icon: Sparkles },
+    { name: "Members", href: `/dashboard/${workspaceId}/${projectId}/members`, icon: Users },
   ];
 
   return (
