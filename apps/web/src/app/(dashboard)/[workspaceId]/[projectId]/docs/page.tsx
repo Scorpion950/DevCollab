@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, BookOpen, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 
 interface WikiPage {
   id: string;
@@ -117,14 +117,14 @@ export default function DocsPage() {
                 className="bg-bg-elevated border-border"
               />
             </div>
-            <DialogFooter>
+            <div className="flex justify-end gap-2 mt-6">
               <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={!newPageTitle.trim() || isSubmitting}>
                 {isSubmitting ? 'Creating...' : 'Create Document'}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

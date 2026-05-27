@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -107,8 +108,8 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border">
-          <div className="w-7 h-7 rounded-lg bg-gradient-brand flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-xs">D</span>
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
+            <Image src="/logo.png" alt="DevCollab Logo" width={32} height={32} className="object-cover" />
           </div>
           <span className="font-semibold text-text-primary text-sm">DevCollab</span>
           <div className="ml-auto">

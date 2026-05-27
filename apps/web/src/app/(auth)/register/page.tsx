@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2, ArrowRight, Check } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
@@ -41,8 +42,8 @@ export default function RegisterPage() {
     <div className="card-elevated animate-scale-in">
       {/* Header */}
       <div className="mb-8 text-center">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4">
-          <span className="text-2xl">🚀</span>
+        <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-4 border border-border shadow-lg">
+          <Image src="/logo.png" alt="DevCollab Logo" width={64} height={64} className="object-cover" />
         </div>
         <h1 className="text-2xl font-bold text-text-primary mb-1">Create your account</h1>
         <p className="text-text-secondary text-sm">
