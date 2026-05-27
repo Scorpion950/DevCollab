@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
 import { Zap, Check, Loader2, Building2, Users, FolderKanban, Cpu, Infinity } from 'lucide-react';
+import api from '@/lib/api';
 
 const FREE_FEATURES = [
   '1 Workspace',
@@ -31,10 +32,16 @@ export default function UpgradePage() {
 
   const handleUpgrade = async () => {
     setIsLoading(true);
-    // Placeholder: integrate Stripe Checkout here
-    await new Promise((r) => setTimeout(r, 1500));
-    alert('Stripe Checkout integration coming soon! Set up your STRIPE_* keys to enable payments.');
-    setIsLoading(false);
+    try {
+      const response = await api.post('/stripe/create-checkout-session');
+      if (response.data?.url) {
+        window.location.href = response.data.url;
+      }
+    } catch (error) {
+      console.error('Failed to initiate checkout', error);
+      alert('Failed to initiate Stripe Checkout. Please check your STRIPE_* keys.');
+      setIsLoading(false);
+    }
   };
 
   if (user?.plan === 'PRO') {

@@ -18,6 +18,7 @@ import wikiRouter from './routes/wiki';
 import snippetsRouter from './routes/snippets';
 import activityRouter from './routes/activity';
 import uploadsRouter from './routes/uploads';
+import stripeRouter from './routes/stripe';
 import { aiRouter } from './routes/ai';
 import { setupBoardSocket } from './socket/board';
 import { setupNotificationSocket } from './socket/notifications';
@@ -58,6 +59,41 @@ app.use(
   })
 );
 app.use(morgan('dev'));
+
+// Stripe Webhook MUST be placed before express.json() because it needs the raw body
+import Stripe from 'stripe';
+import { prisma } from './lib/prisma';
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'] as string;
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2024-04-10' });
+  
+  try {
+    const event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET || ''
+    );
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const userId = session.client_reference_id;
+      
+      if (userId) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { plan: 'PRO' },
+        });
+        console.log(`[Stripe] Upgraded user ${userId} to PRO`);
+      }
+    }
+
+    res.json({ received: true });
+  } catch (err: any) {
+    console.error('[Stripe Webhook Error]', err.message);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -93,6 +129,7 @@ app.use('/api/snippets', snippetsRouter);
 app.use('/api/activity', activityRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/stripe', stripeRouter);
 
 setupBoardSocket(io);
 setupNotificationSocket(io);
