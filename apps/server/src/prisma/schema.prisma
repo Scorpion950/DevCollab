@@ -110,6 +110,7 @@ model Workspace {
   projects Project[]
   invites  WorkspaceInvite[]
   activityLogs ActivityLog[]
+  aiCreditUsage AICreditUsage?
 
   @@index([slug])
   @@index([ownerId])
@@ -373,6 +374,21 @@ model Subscription {
   updatedAt          DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// =============================================
+// AI CREDIT USAGE
+// =============================================
+
+model AICreditUsage {
+  id          String    @id @default(cuid())
+  workspaceId String    @unique
+  creditsUsed Int       @default(0)
+  lastResetAt DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 // =============================================
