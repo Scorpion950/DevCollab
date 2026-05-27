@@ -31,9 +31,11 @@ export const useAuthStore = create<AuthState>()(
           const { user, accessToken } = data.data;
           localStorage.setItem('accessToken', accessToken);
           set({ user, accessToken, isAuthenticated: true });
-        } finally {
+        } catch (err) {
           set({ isLoading: false });
+          throw err;
         }
+        set({ isLoading: false });
       },
 
       register: async (name, email, password) => {
@@ -47,9 +49,11 @@ export const useAuthStore = create<AuthState>()(
           const { user, accessToken } = data.data;
           localStorage.setItem('accessToken', accessToken);
           set({ user, accessToken, isAuthenticated: true });
-        } finally {
+        } catch (err) {
           set({ isLoading: false });
+          throw err;
         }
+        set({ isLoading: false });
       },
 
       logout: async () => {

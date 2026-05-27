@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { BoardTask, TaskUpdateInput } from '@/types';
 import { api } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const useTask = (taskId: string) => {
   const [task, setTask] = useState<BoardTask | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const fetchTask = async () => {
@@ -31,6 +33,7 @@ export const useTask = (taskId: string) => {
     try {
       const response = await api.put(`/tasks/${taskId}`, updates);
       setTask(response.data);
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       return response.data;
     } catch (err) {
       console.error('Error updating task:', err);
@@ -42,6 +45,7 @@ export const useTask = (taskId: string) => {
     try {
       await api.delete(`/tasks/${taskId}`);
       setTask(null);
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     } catch (err) {
       console.error('Error deleting task:', err);
       throw err;

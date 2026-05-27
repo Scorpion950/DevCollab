@@ -1,11 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
-  FolderKanban,
   ChevronDown,
   ChevronRight,
   Plus,
@@ -13,19 +12,31 @@ import {
   Zap,
   Hash,
   Building2,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  X,
+  Check,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Workspace, Project } from '@devcollab/types';
 import { CreateWorkspaceModal } from '@/components/workspace/create-workspace-modal';
 import { CreateProjectModal } from '@/components/project/create-project-modal';
 import { cn } from '@/lib/utils';
+import { useUIStore } from '@/store/ui.store';
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { isSidebarOpen } = useUIStore();
   const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(new Set());
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [createProjectFor, setCreateProjectFor] = useState<string | null>(null);
+  const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [projectMenuId, setProjectMenuId] = useState<string | null>(null);
 
   const { data: workspacesData } = useQuery({
     queryKey: ['workspaces'],
@@ -47,6 +58,24 @@ export function Sidebar() {
     enabled: expandedWorkspaces.size > 0,
   });
 
+  const { mutate: renameProject } = useMutation({
+    mutationFn: ({ workspaceId, projectId, name }: { workspaceId: string; projectId: string; name: string }) =>
+      api.put(`/workspaces/${workspaceId}/projects/${projectId}`, { name }).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setRenamingProjectId(null);
+    },
+  });
+
+  const { mutate: deleteProject } = useMutation({
+    mutationFn: ({ workspaceId, projectId }: { workspaceId: string; projectId: string }) =>
+      api.delete(`/workspaces/${workspaceId}/projects/${projectId}`).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      router.push('/dashboard');
+    },
+  });
+
   const toggleWorkspace = (id: string) => {
     setExpandedWorkspaces((prev) => {
       const next = new Set(prev);
@@ -59,8 +88,14 @@ export function Sidebar() {
   return (
     <>
       <aside
-        className="flex flex-col border-r border-border bg-bg-surface"
-        style={{ width: 'var(--sidebar-width)', minWidth: 'var(--sidebar-width)' }}
+        className={cn(
+          "flex flex-col border-r border-border bg-bg-surface transition-all duration-300 overflow-hidden",
+          !isSidebarOpen && "border-r-0 opacity-0"
+        )}
+        style={{ 
+          width: isSidebarOpen ? 'var(--sidebar-width)' : '0px', 
+          minWidth: isSidebarOpen ? 'var(--sidebar-width)' : '0px' 
+        }}
       >
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border">
@@ -148,22 +183,98 @@ export function Sidebar() {
                   <div className="ml-4 mt-0.5 space-y-0.5 animate-slide-in">
                     {projects.map((project) => {
                       const href = `/dashboard/${ws.id}/${project.id}/board`;
-                      const isActive = pathname.startsWith(`/dashboard/${ws.id}/${project.id}`);
+                      const isActive = pathname.includes(`/${ws.id}/${project.id}`);
+                      const isRenaming = renamingProjectId === project.id;
+
                       return (
-                        <Link
-                          key={project.id}
-                          href={href}
-                          className={cn(
-                            'flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-all duration-150',
-                            isActive && 'text-primary-light bg-primary/10'
+                        <div key={project.id} className="relative group/project">
+                          {isRenaming ? (
+                            <div className="flex items-center gap-1 px-2 py-1">
+                              <input
+                                autoFocus
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && renameValue.trim()) {
+                                    renameProject({ workspaceId: ws.id, projectId: project.id, name: renameValue.trim() });
+                                  }
+                                  if (e.key === 'Escape') setRenamingProjectId(null);
+                                }}
+                                className="flex-1 text-xs bg-bg-elevated border border-primary/40 rounded px-1.5 py-1 outline-none text-text-primary"
+                              />
+                              <button
+                                onClick={() => renameProject({ workspaceId: ws.id, projectId: project.id, name: renameValue.trim() })}
+                                className="text-success hover:text-success"
+                              >
+                                <Check size={12} />
+                              </button>
+                              <button
+                                onClick={() => setRenamingProjectId(null)}
+                                className="text-text-muted hover:text-danger"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <Link
+                              href={href}
+                              className={cn(
+                                'flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-all duration-150 pr-6',
+                                isActive && 'text-primary-light bg-primary/10'
+                              )}
+                              id={`project-nav-${project.id}`}
+                            >
+                              <span style={{ color: project.color }}>
+                                {project.emoji || <Hash size={10} />}
+                              </span>
+                              <span className="truncate">{project.name}</span>
+                            </Link>
                           )}
-                          id={`project-nav-${project.id}`}
-                        >
-                          <span style={{ color: project.color }}>
-                            {project.emoji || <Hash size={10} />}
-                          </span>
-                          <span className="truncate">{project.name}</span>
-                        </Link>
+
+                          {/* Project context menu button */}
+                          {!isRenaming && (
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/project:opacity-100 transition-opacity">
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setProjectMenuId(projectMenuId === project.id ? null : project.id);
+                                }}
+                                className="btn-icon w-5 h-5"
+                              >
+                                <MoreHorizontal size={10} />
+                              </button>
+
+                              {projectMenuId === project.id && (
+                                <div className="absolute left-0 top-full mt-1 w-36 card-elevated z-50 p-1 animate-scale-in">
+                                  <button
+                                    onClick={() => {
+                                      setRenameValue(project.name);
+                                      setRenamingProjectId(project.id);
+                                      setProjectMenuId(null);
+                                    }}
+                                    className="flex items-center gap-2 w-full px-2 py-1.5 text-xs text-text-secondary hover:bg-bg-elevated hover:text-text-primary rounded transition-colors"
+                                  >
+                                    <Pencil size={11} />
+                                    Rename
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (confirm(`Delete project "${project.name}"? This cannot be undone.`)) {
+                                        deleteProject({ workspaceId: ws.id, projectId: project.id });
+                                      }
+                                      setProjectMenuId(null);
+                                    }}
+                                    className="flex items-center gap-2 w-full px-2 py-1.5 text-xs text-danger hover:bg-danger/10 rounded transition-colors"
+                                  >
+                                    <Trash2 size={11} />
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
 
@@ -190,7 +301,7 @@ export function Sidebar() {
             <Settings size={14} />
             <span>Settings</span>
           </Link>
-          <Link href="/dashboard/upgrade" className="nav-item text-xs">
+          <Link href="/dashboard/upgrade" className={cn('nav-item text-xs', pathname.includes('upgrade') && 'active')}>
             <Zap size={14} className="text-warning" />
             <span>Upgrade to Pro</span>
           </Link>

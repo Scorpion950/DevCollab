@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { TaskStatus } from '@/types';
 import { Column } from './Column';
 import { TaskDetailModal } from './TaskDetailModal';
@@ -10,7 +10,7 @@ import { usePresenceSocket } from '@/hooks/usePresenceSocket';
 import { useBoardStore } from '@/store/board.store';
 import { useTaskStore } from '@/store/task.store';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 
 interface BoardProps {
@@ -19,18 +19,22 @@ interface BoardProps {
 }
 
 export const Board: React.FC<BoardProps> = ({ projectId, workspaceId }) => {
-  const { tasks, isLoading, error } = useBoard(projectId);
+  const { tasks: fetchedTasks, isLoading, error } = useBoard(projectId);
   const { selectedTaskId, setSelectedTaskId, openModal, closeModal, isModalOpen } = useTaskStore();
   const { tasks: boardTasks, setTasks, moveTask } = useBoardStore();
   const { viewers } = usePresenceSocket(projectId);
   const { moveTaskSocket } = useBoardSocket(projectId, workspaceId);
   const sensors = useSensors(useSensor(PointerSensor));
 
+  // Sync fetched tasks to board store — only when the fetched data actually changes
+  const prevTasksRef = useRef<string>('');
   useEffect(() => {
-    if (tasks) {
-      setTasks(tasks);
-    }
-  }, [tasks, setTasks]);
+    if (!fetchedTasks || fetchedTasks.length === 0) return;
+    const serialized = JSON.stringify(fetchedTasks.map(t => t.id + t.status + t.order));
+    if (serialized === prevTasksRef.current) return;
+    prevTasksRef.current = serialized;
+    setTasks(fetchedTasks);
+  }, [fetchedTasks, setTasks]);
 
   const columns: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'];
 
@@ -45,20 +49,29 @@ export const Board: React.FC<BoardProps> = ({ projectId, workspaceId }) => {
     DONE: 'Done',
   };
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-full">Loading...</div>;
+  if (isLoading && boardTasks.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full gap-3 text-text-muted">
+        <Loader2 size={20} className="animate-spin text-primary" />
+        <span className="text-sm">Loading board...</span>
+      </div>
+    );
   }
 
-  if (error) {
-    return <div className="flex items-center justify-center h-full text-red-500">Error loading board</div>;
+  if (error && boardTasks.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full text-danger text-sm">
+        Failed to load board. Please refresh.
+      </div>
+    );
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-bg-base">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+      <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-bg-surface">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-semibold text-text-primary">Kanban Board</h1>
+          <h1 className="text-xl font-semibold text-text-primary">Kanban Board</h1>
           <PresenceIndicator viewers={viewers} />
         </div>
         <Button onClick={() => openModal()} className="gap-2">
@@ -75,31 +88,26 @@ export const Board: React.FC<BoardProps> = ({ projectId, workspaceId }) => {
           const overId = event.over?.id as string;
           const activeTask = boardTasks.find((task) => task.id === activeId);
 
-          if (!activeTask || !overId) {
-            return;
-          }
+          if (!activeTask || !overId) return;
 
           const destinationStatus =
             columns.includes(overId as TaskStatus)
               ? (overId as TaskStatus)
               : boardTasks.find((task) => task.id === overId)?.status;
 
-          if (!destinationStatus || destinationStatus === activeTask.status) {
-            return;
-          }
+          if (!destinationStatus || destinationStatus === activeTask.status) return;
 
-          const destinationTasks = boardTasks.filter(
-            (task) => task.status === destinationStatus
-          );
-          const newOrder = destinationTasks.length > 0
-            ? Math.max(...destinationTasks.map((task) => task.order)) + 1
-            : 0;
+          const destinationTasks = boardTasks.filter((task) => task.status === destinationStatus);
+          const newOrder =
+            destinationTasks.length > 0
+              ? Math.max(...destinationTasks.map((task) => task.order)) + 1
+              : 0;
 
           moveTask(activeId, destinationStatus, newOrder);
           moveTaskSocket(activeId, destinationStatus, newOrder);
         }}
       >
-        <div className="flex-1 overflow-x-auto p-6 gap-6 flex">
+        <div className="flex-1 overflow-x-auto p-6 gap-5 flex">
           {columns.map((status) => (
             <Column
               key={status}

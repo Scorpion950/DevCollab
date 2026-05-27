@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth.store';
 import { Sidebar } from '@/components/layout/sidebar';
@@ -13,15 +13,24 @@ export default function DashboardLayout({
 }) {
   const { isAuthenticated, fetchMe } = useAuthStore();
   const router = useRouter();
+  // Wait one tick for Zustand persist to rehydrate before redirecting
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
     if (!isAuthenticated) {
       router.replace('/login');
       return;
     }
     fetchMe();
-  }, [isAuthenticated, fetchMe, router]);
+  }, [hydrated, isAuthenticated, fetchMe, router]);
 
+  // Show nothing until hydrated (avoids flash-redirect on back button)
+  if (!hydrated) return null;
   if (!isAuthenticated) return null;
 
   return (

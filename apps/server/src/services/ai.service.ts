@@ -1,8 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { prisma } from "../lib/prisma";
+import prisma from "../lib/prisma";
 
-const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// Use gemini-2.0-flash for latest free capabilities
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 export class AIService {
   static async checkCredits(workspaceId: string) {
@@ -16,45 +17,43 @@ export class AIService {
 
     const limit = parseInt(process.env.AI_FREE_DAILY_LIMIT || "10", 10);
     const usage = workspace.aiCreditUsage?.creditsUsed || 0;
-    
-    // In a real app we'd reset the credits periodically, for now just check against limit
+
     if (usage >= limit) {
       throw new Error("Free tier AI limit reached. Please upgrade to Pro.");
     }
     return true;
   }
 
-  static async logUsage(workspaceId: string, credits: number) {
+  static async logUsage(workspaceId: string, credits: number = 1) {
     await prisma.aICreditUsage.upsert({
       where: { workspaceId },
-      create: {
-        workspaceId,
-        creditsUsed: credits,
-      },
-      update: {
-        creditsUsed: { increment: credits },
-      },
+      create: { workspaceId, creditsUsed: credits },
+      update: { creditsUsed: { increment: credits } },
     });
   }
 
   static async summarizeProject(projectId: string, workspaceId: string) {
     await this.checkCredits(workspaceId);
-    
-    // Fetch all tasks
+
     const tasks = await prisma.task.findMany({
       where: { projectId },
-      include: { assignee: true },
+      select: { title: true, status: true, priority: true, assigneeId: true },
     });
 
-    const prompt = `
-      Summarise the following task list into a brief markdown summary of the project status.
-      Tasks:
-      ${JSON.stringify(tasks.map(t => ({ title: t.title, status: t.status, priority: t.priority })), null, 2)}
-    `;
+    const prompt = `You are a project management AI assistant. Summarize the following project tasks into a concise, friendly markdown report showing progress.
+
+Tasks:
+${JSON.stringify(tasks, null, 2)}
+
+Provide:
+1. A brief overall status (1-2 sentences)
+2. Progress by status (counts)
+3. Any notable patterns or highlights
+Keep it concise and actionable.`;
 
     const result = await model.generateContent(prompt);
-    await this.logUsage(workspaceId, 1);
-    
+    await this.logUsage(workspaceId);
+
     return { summary: result.response.text() };
   }
 
@@ -62,35 +61,55 @@ export class AIService {
     await this.checkCredits(workspaceId);
 
     const tasks = await prisma.task.findMany({
-      where: { 
-        projectId,
-        status: "IN_PROGRESS",
-      },
+      where: { projectId, status: "IN_PROGRESS" },
+      select: { title: true, priority: true, updatedAt: true, dueDate: true },
     });
 
-    // In a real implementation we would filter tasks in progress > 3 days. 
-    // Here we'll just send all IN_PROGRESS tasks and ask Gemini to identify blockers.
-    const prompt = `
-      Look at these tasks currently 'IN_PROGRESS'. Provide a brief commentary on potential blockers or what might be stuck.
-      Tasks:
-      ${JSON.stringify(tasks.map(t => ({ title: t.title, priority: t.priority, updatedAt: t.updatedAt })), null, 2)}
-    `;
+    const prompt = `You are a project management AI. Analyze these IN_PROGRESS tasks and identify potential blockers or risks.
+
+Tasks in progress:
+${JSON.stringify(tasks, null, 2)}
+
+For each potential blocker, mention:
+- What might be stuck and why
+- Recommended action
+- Risk level (Low/Medium/High)
+
+If no tasks are in progress, say so and encourage the team.`;
 
     const result = await model.generateContent(prompt);
-    await this.logUsage(workspaceId, 1);
+    await this.logUsage(workspaceId);
 
-    return { analysis: result.response.text(), tasks };
+    return { analysis: result.response.text(), taskCount: tasks.length };
   }
 
   static async standupReport(projectId: string, workspaceId: string) {
     await this.checkCredits(workspaceId);
 
-    const prompt = `
-      Generate a brief standup report (What's done, What's in progress, Blockers) based on a typical software project.
-    `;
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const [doneTasks, inProgressTasks, todoTasks] = await Promise.all([
+      prisma.task.findMany({ where: { projectId, status: "DONE" }, select: { title: true, updatedAt: true }, take: 10, orderBy: { updatedAt: "desc" } }),
+      prisma.task.findMany({ where: { projectId, status: "IN_PROGRESS" }, select: { title: true, assigneeId: true }, take: 10 }),
+      prisma.task.findMany({ where: { projectId, status: "TODO", priority: { in: ["P0", "P1"] } }, select: { title: true, priority: true }, take: 5 }),
+    ]);
+
+    const prompt = `Generate a concise daily standup report for a developer team based on this project data.
+
+✅ Recently done: ${JSON.stringify(doneTasks.map(t => t.title))}
+🔄 In progress: ${JSON.stringify(inProgressTasks.map(t => t.title))}
+🔜 High priority TODO: ${JSON.stringify(todoTasks.map(t => ({ title: t.title, priority: t.priority })))}
+
+Format as:
+**Yesterday:** ...
+**Today:** ...
+**Blockers:** ...
+
+Be concise and professional.`;
 
     const result = await model.generateContent(prompt);
-    await this.logUsage(workspaceId, 1);
+    await this.logUsage(workspaceId);
 
     return { report: result.response.text() };
   }
@@ -98,48 +117,61 @@ export class AIService {
   static async taskBreakdown(description: string, workspaceId: string) {
     await this.checkCredits(workspaceId);
 
-    const prompt = `
-      Break down the following feature into small, actionable subtasks. 
-      Return ONLY a JSON array of objects with 'title' and 'description' keys. No markdown blocks.
-      Feature: ${description}
-    `;
+    const prompt = `Break down this feature into 4-8 small, actionable development subtasks.
+
+Feature: ${description}
+
+Return ONLY a valid JSON array. No markdown, no explanation, just the JSON:
+[{"title": "task title", "description": "brief description of what to do", "priority": "P0|P1|P2"}]`;
 
     const result = await model.generateContent(prompt);
-    await this.logUsage(workspaceId, 1);
+    await this.logUsage(workspaceId);
 
     try {
       let text = result.response.text().trim();
-      if (text.startsWith("\`\`\`json")) {
-        text = text.substring(7, text.length - 3).trim();
-      }
+      // Strip markdown code fences if present
+      text = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
       return { tasks: JSON.parse(text) };
-    } catch (e) {
-      return { tasks: [] };
+    } catch {
+      return { tasks: [], error: "Could not parse AI response" };
     }
   }
 
   static async codeReview(code: string, language: string, workspaceId: string) {
     await this.checkCredits(workspaceId);
 
-    const prompt = `
-      Review the following ${language} code for bugs, performance, security, and readability.
-      Return ONLY a JSON object with this exact structure:
-      { "score": 1-100, "issues": ["issue 1", "issue 2"], "suggestions": ["suggestion 1"] }
-      Code:
-      ${code}
-    `;
+    const prompt = `You are an expert ${language} code reviewer. Review this code thoroughly.
+
+\`\`\`${language}
+${code}
+\`\`\`
+
+Return ONLY valid JSON (no markdown, no explanation):
+{
+  "score": <integer 1-100>,
+  "summary": "<one sentence overall verdict>",
+  "issues": ["<specific issue 1>", "<specific issue 2>"],
+  "suggestions": ["<actionable suggestion 1>", "<actionable suggestion 2>"],
+  "positives": ["<what the code does well>"]
+}`;
 
     const result = await model.generateContent(prompt);
-    await this.logUsage(workspaceId, 1);
+    await this.logUsage(workspaceId);
 
     try {
       let text = result.response.text().trim();
-      if (text.startsWith("\`\`\`json")) {
-        text = text.substring(7, text.length - 3).trim();
-      }
+      text = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
       return { review: JSON.parse(text) };
-    } catch (e) {
-      return { review: { score: 0, issues: ["Failed to parse review"], suggestions: [] } };
+    } catch {
+      return {
+        review: {
+          score: 0,
+          summary: "Failed to parse AI response",
+          issues: ["Could not analyze code"],
+          suggestions: [],
+          positives: [],
+        },
+      };
     }
   }
 }

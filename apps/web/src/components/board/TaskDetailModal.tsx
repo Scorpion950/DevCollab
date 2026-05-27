@@ -59,6 +59,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         title,
         description,
       });
+      onClose();
     } finally {
       setIsSaving(false);
     }

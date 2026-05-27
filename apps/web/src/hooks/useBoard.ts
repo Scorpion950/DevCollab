@@ -1,33 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { BoardTask } from '@/types';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
 
 export const useBoard = (projectId: string) => {
-  const [tasks, setTasks] = useState<BoardTask[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, error } = useQuery<BoardTask[]>({
+    queryKey: ['tasks', projectId],
+    queryFn: async () => {
+      const response = await api.get('/tasks', { params: { projectId } });
+      return response.data;
+    },
+    enabled: !!projectId,
+    staleTime: 30_000, // Cache for 30s before refetching
+  });
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        setIsLoading(true);
-        const response = await api.get('/tasks', {
-          params: { projectId },
-        });
-        setTasks(response.data);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching tasks:', err);
-        setError('Failed to fetch tasks');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (projectId) {
-      fetchTasks();
-    }
-  }, [projectId]);
-
-  return { tasks, isLoading, error };
+  return {
+    tasks: data ?? [],
+    isLoading,
+    error: error ? 'Failed to fetch tasks' : null,
+  };
 };

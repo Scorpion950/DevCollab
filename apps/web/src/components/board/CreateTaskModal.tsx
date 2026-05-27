@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Priority } from '@/types';
 import { api } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
 import { useBoardStore } from '@/store/board.store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,13 +41,15 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('P2');
-  const [assigneeId, setAssigneeId] = useState<string | null>(null);
+  // Radix Select.Item forbids empty string values — use sentinel 'unassigned'
+  const [assigneeId, setAssigneeId] = useState<string>('unassigned');
   const [labels, setLabels] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [members, setMembers] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const { addTask } = useBoardStore();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -84,11 +87,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         priority,
         dueDate: dueDate ? new Date(dueDate) : undefined,
         labels: labelsArray,
-        assigneeId,
+        assigneeId: assigneeId === 'unassigned' ? null : assigneeId,
         workspaceId,
       });
 
       addTask(response.data);
+      queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
       onClose();
     } catch (error) {
       console.error('Error creating task:', error);
@@ -111,7 +115,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="bg-surface-elevated border-border"
+              className=""
               placeholder="Task title"
             />
           </div>
@@ -121,7 +125,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="bg-surface-elevated border-border"
+              className=""
               placeholder="Task description"
               rows={4}
             />
@@ -131,7 +135,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             <div>
               <label className="text-sm font-medium text-text-primary mb-2 block">Priority</label>
               <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
-                <SelectTrigger className="bg-surface-elevated border-border">
+                <SelectTrigger className="bg-bg-elevated border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -147,14 +151,14 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
             <div>
               <label className="text-sm font-medium text-text-primary mb-2 block">Assignee</label>
               <Select
-                value={assigneeId ?? ''}
-                onValueChange={(value) => setAssigneeId(value || null)}
+                value={assigneeId}
+                onValueChange={(value) => setAssigneeId(value)}
               >
-                <SelectTrigger className="bg-surface-elevated border-border">
+                <SelectTrigger className="bg-bg-elevated border-border">
                   <SelectValue placeholder="Unassigned" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {members.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       {member.name}
@@ -172,7 +176,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="bg-surface-elevated border-border"
+                className=""
               />
             </div>
             <div>
@@ -180,7 +184,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               <Input
                 value={labels}
                 onChange={(e) => setLabels(e.target.value)}
-                className="bg-surface-elevated border-border"
+                className=""
                 placeholder="comma-separated tags"
               />
             </div>

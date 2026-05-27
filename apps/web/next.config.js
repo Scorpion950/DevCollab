@@ -9,10 +9,17 @@ const nextConfig = {
     ],
   },
   async rewrites() {
+    // SERVER_URL used in production (Vercel → Railway)
+    // Fallback to localhost for local dev
+    const serverUrl =
+      process.env.SERVER_URL ||
+      process.env.NEXT_PUBLIC_SERVER_URL ||
+      'http://localhost:4000';
+
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.SERVER_URL || 'http://localhost:4000'}/api/:path*`,
+        destination: `${serverUrl}/api/:path*`,
       },
     ];
   },
