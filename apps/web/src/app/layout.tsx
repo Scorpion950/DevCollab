@@ -29,6 +29,11 @@ export const metadata: Metadata = {
     description: 'Real-Time Project Collaboration Platform for Developers',
     type: 'website',
   },
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
+  },
 };
 
 export default function RootLayout({

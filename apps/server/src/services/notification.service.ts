@@ -22,7 +22,10 @@ export class NotificationService {
     });
 
     // Emit real-time notification
-    sendNotificationToUser(io, userId, notification).catch((err) => 
+    sendNotificationToUser(io, userId, {
+      ...notification,
+      link: notification.link || undefined
+    }).catch((err) => 
       console.error('Failed to emit notification socket:', err)
     );
 
