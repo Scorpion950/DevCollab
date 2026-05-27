@@ -31,9 +31,12 @@ const httpServer = http.createServer(app);
 // SOCKET.IO — Phase 2 will expand this
 // =============================================
 
+const rawOrigin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const appOrigin = rawOrigin.endsWith('/') ? rawOrigin.slice(0, -1) : rawOrigin;
+
 export const io = new SocketServer(httpServer, {
   cors: {
-    origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    origin: appOrigin,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -54,7 +57,7 @@ io.on('connection', (socket) => {
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    origin: appOrigin,
     credentials: true,
   })
 );
