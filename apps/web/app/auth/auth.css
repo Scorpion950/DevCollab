@@ -1,0 +1,41 @@
+.access-shell {
+  width: min(calc(100% - 2.5rem), 28rem);
+  min-height: 100svh;
+  margin-inline: auto;
+  padding-block: clamp(2rem, 6vh, 4.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(2rem, 4vh, 3rem);
+}
+.access-form h1 {
+  font-family: var(--heading-font); font-weight: 550; letter-spacing: -.065em; line-height: 1.04;
+}
+.access-form h1 { font-size: clamp(2.5rem, 4vw, 4rem); }
+.access-lede, .access-switch { color: var(--muted-foreground); }
+.access-lede { margin-top: .7rem; }
+.access-notice {
+  display: flex; align-items: center; gap: .6rem; margin: 1.4rem 0;
+  padding: .7rem .85rem; border-left: 2px solid var(--warm-ink);
+  background: var(--card); color: var(--muted-foreground); font-size: .88rem;
+}
+.access-notice svg { color: var(--warm-ink); }
+.access-field { display: grid; gap: .4rem; margin-block: .9rem; font-size: .9rem; font-weight: 550; }
+.access-field input {
+  width: 100%; min-height: 2.9rem; border: 1px solid var(--strong-border); border-radius: var(--radius-field);
+  background: var(--well); padding: .65rem .85rem; color: var(--foreground);
+}
+.access-password { position: relative; }
+.access-password input { padding-right: 3rem; }
+.access-password button { position: absolute; inset: 0 0 0 auto; width: 2.9rem; display: grid; place-items: center; }
+.access-form form > .button { width: 100%; margin-top: .4rem; }
+.access-form .button:disabled { opacity: .78; cursor: not-allowed; }
+.access-divider { display: flex; gap: .8rem; align-items: center; margin: 1.1rem 0; font: .75rem var(--mono-font); color: var(--muted-foreground); }
+.access-divider::before, .access-divider::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+.access-providers { display: grid; gap: .55rem; }
+.access-switch { margin-top: 1.4rem; font-size: .94rem; }
+.access-switch a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: .25em; }
+.form-hint { color: var(--muted-foreground); font-size: .875rem; }
+.form-error { display:flex; gap:var(--space-2); align-items:baseline; color:var(--error); margin-block:var(--space-3); }
+.access-field input { transition:border-color .18s ease-out; }
+.access-field input:hover { border-color:var(--muted-foreground); }

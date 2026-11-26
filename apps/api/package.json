@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
+    "test": "nest build && node --test test/identity.test.cjs",
     "build": "nest build",
     "start": "node dist/main.js",
     "lint": "eslint src",
@@ -16,7 +17,11 @@
     "@nestjs/core": "^11.1.0",
     "@nestjs/platform-express": "^11.1.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "@devcollab/database": "workspace:*",
+    "jose": "^6.1.0"
   },
-  "devDependencies": { "@nestjs/cli": "^11.0.0" }
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0"
+  }
 }

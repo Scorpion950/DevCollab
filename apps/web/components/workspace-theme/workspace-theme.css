@@ -1,0 +1,35 @@
+[data-workspace-theme] {
+  color-scheme: dark;
+  --background: #111613;
+  --card: #1a211c;
+  --surface: #232b25;
+  --well: #101511;
+  --foreground: #f2f0e8;
+  --muted-foreground: #a5aca1;
+  --primary: #d7f078;
+  --primary-foreground: #111613;
+  --accent-ink: #d7f078;
+  --warm-ink: #e58b65;
+  --border: #384239;
+  --strong-border: #69786c;
+  --ring: #d7f078;
+  color: var(--foreground);
+  background-color: var(--background);
+}
+
+[data-workspace-theme="light"] {
+  color-scheme: light;
+  --background: #f5f3eb;
+  --card: #fffefa;
+  --surface: #eaede4;
+  --well: #eff0e8;
+  --foreground: #1b241e;
+  --muted-foreground: #58645b;
+  --primary: #d7f078;
+  --primary-foreground: #1b241e;
+  --accent-ink: #435a16;
+  --warm-ink: #914529;
+  --border: #d8ded4;
+  --strong-border: #7b897c;
+  --ring: #496420;
+}

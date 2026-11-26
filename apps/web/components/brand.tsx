@@ -1,3 +1,4 @@
+import Link from "next/link";
 export function BrandMark({ className = "" }: { className?: string }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 34 32" fill="currentColor" className={className}>
@@ -6,6 +7,6 @@ export function BrandMark({ className = "" }: { className?: string }) {
   );
 }
 
-export function Wordmark() {
-  return <a href="#top" aria-label="DevCollab home" className="wordmark"><BrandMark />DevCollab</a>;
+export function Wordmark({ onNavigate }: { onNavigate?: () => void }) {
+  return <Link onClick={onNavigate} href="/" aria-label="DevCollab home" className="wordmark"><BrandMark />DevCollab</Link>;
 }

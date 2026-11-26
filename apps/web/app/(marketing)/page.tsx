@@ -1,10 +1,9 @@
 import { Blocks, Bot, ChartNoAxesColumnIncreasing, CirclePlay, Database, GitMerge, Layers3, ListTodo, Monitor, PackageCheck, Server, SquareCode, UsersRound } from "lucide-react";
-import { Navigation } from "@/components/navigation";
-import { Wordmark } from "@/components/brand";
-import { Assembly } from "@/components/assembly";
-import { WorkspacePreview } from "@/components/workspace-preview";
+import Link from "next/link";
+
+import { WorkspaceIllustration } from "@/components/workspace-illustration";
+import { PlatformConsole } from "@/components/demos/platform-console";
 import { Button } from "@/components/ui/button";
-import { repositoryUrl } from "@/lib/server/config";
 
 const features = [
   { icon: Layers3, title: "Unified Engineering Workspace", body: "Keep a project’s tasks, branches, and reviews in one shared context." },
@@ -29,23 +28,25 @@ const architecture = [
 
 export default function Home() {
   return (
-    <div id="top">
-      <a className="skip-link" href="#main">Skip to content</a>
-      <Navigation repository={repositoryUrl()} />
+
       <main id="main">
         <section className="hero frame" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <p className="eyebrow hero-eyebrow"><span className="signal" aria-hidden="true"><i /><i /><i /></span> The next engineering workspace <span className="eyebrow-ref">/ 001</span></p>
+            <p className="eyebrow hero-eyebrow"><span className="signal" aria-hidden="true"><i /><i /><i /></span> The next engineering workspace</p>
             <h1 id="hero-title">Build together.<br /><em>Ship smarter.</em></h1>
             <p className="hero-description">One engineering workspace where developers and autonomous AI agents collaborate to turn tasks into working software.</p>
             <div className="hero-actions">
               <Button asChild><a href="#product"><SquareCode size={16} /> Explore the Platform</a></Button>
-              <Button asChild variant="secondary"><a href="#workflow"><CirclePlay size={16} /> See How It Works</a></Button>
+              <Button asChild variant="secondary"><Link href="/how-it-works"><CirclePlay size={16} /> See How It Works</Link></Button>
             </div>
           </div>
-          <Assembly />
+          <WorkspaceIllustration />
         </section>
-        <WorkspacePreview />
+        <section id="product" className="frame home-product" aria-labelledby="product-title">
+          <h2 className="section-heading" id="product-title">Explore the Workspace</h2>
+          <p>Experience how projects, tasks, AI agents, code reviews, and engineering insights come together in DevCollab.</p>
+          <PlatformConsole />
+        </section>
         <section id="features" className="frame content-section" aria-labelledby="features-title">
           <p className="eyebrow"><span className="index-mark" /> Planned capabilities</p>
           <h2 id="features-title" className="section-heading">A workspace built for both.</h2>
@@ -69,10 +70,5 @@ export default function Home() {
           ))}</ul>
         </section>
       </main>
-      <footer><div className="frame footer-inner"><div><Wordmark /><p>A shared engineering workspace for developers and AI agents.</p></div>
-        <nav aria-label="Footer navigation"><a href="#product">Product</a><a href="#features">Features</a><a href="#architecture">Architecture</a></nav>
-        <small>© {new Date().getUTCFullYear()} DevCollab</small>
-      </div></footer>
-    </div>
   );
 }
