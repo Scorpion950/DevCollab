@@ -63,7 +63,7 @@ Use the canonical HTTPS frontend origin for deployed callback URLs and `AUTH_URL
 
 Registration normalizes email, checks the name and matching 12–128 character passwords, hashes with Argon2id, then signs in through Auth.js Credentials. Unique database constraints arbitrate concurrent registrations. Email verification remains pending, and no verification email is sent.
 
-Auth.js manages encrypted JWT session cookies with an eight-hour lifetime. Logout clears the browser session. Immediate revocation of a previously copied JWT requires an additional revocation mechanism. The repository pins the Auth.js v5 beta release used for these flows.
+Auth.js manages encrypted JWT session cookies with an eight-hour lifetime. While the workspace is open, Auth.js rechecks the session on focus and every five minutes online so a valid session can roll forward. Logout clears the browser session. Immediate revocation of a previously copied JWT requires an additional revocation mechanism. The repository pins the Auth.js v5 beta release used for these flows.
 
 Credential verification and registration have atomic PostgreSQL rate counters shared across instances. Per email, the ten-minute limits are twelve credential attempts and five registration attempts. Each operation also has an aggregate ceiling to bound distributed attempts against new addresses. Expired counters are reclaimed on traffic. Monitor these limits and add infrastructure-level abuse controls before a public rollout.
 

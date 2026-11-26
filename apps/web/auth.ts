@@ -31,7 +31,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
     adapter,
     session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
     pages: { signIn: "/auth/sign-in", error: "/auth/sign-in" },
-    logger: { error(error) { console.error("Authentication error", error.name); } },
+    logger: { error(error) { console.error("Authentication error", "type" in error ? error.type : error.name); } },
     providers: [
       ...(settings.google ? [Google] : []), ...(settings.github ? [GitHub] : []),
       ...(db ? [Credentials({ credentials: { email: {}, password: {} }, async authorize(input) {
