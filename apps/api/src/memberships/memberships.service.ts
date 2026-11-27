@@ -167,6 +167,10 @@ export class MembershipsService {
         }
       }
 
+      await tx.task.updateMany({
+        where: { organizationId: orgId, assigneeId: target.userId },
+        data: { assigneeId: null },
+      });
       await tx.projectRoleAssignment.deleteMany({
         where: { userId: target.userId, project: { organizationId: orgId } },
       });

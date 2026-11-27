@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
-import { CircleAlert, FolderGit2, FolderPlus, Search, ShieldCheck, X } from "lucide-react";
+import { CircleAlert, Columns3, FolderGit2, FolderPlus, Search, ShieldCheck, X } from "lucide-react";
 import type { OrganizationMemberDto, OrganizationRole, ProjectSummaryDto } from "@devcollab/shared";
 import { createProjectAction, type ActionState } from "@/app/app/actions";
 import { Button } from "@/components/ui/button";
@@ -301,9 +301,16 @@ export function ProjectsDirectory({
                 </p>
 
                 <div className="project-card-foot">
-                  <Button asChild variant="secondary" size="compact">
-                    <Link href={`/app/projects/${project.id}`}>Open project</Link>
-                  </Button>
+                  <div className="inline-actions" style={{ gap: ".45rem" }}>
+                    <Button asChild variant="secondary" size="compact">
+                      <Link href={`/app/projects/${project.id}`}>Overview</Link>
+                    </Button>
+                    <Button asChild variant="secondary" size="compact">
+                      <Link href={`/app/projects/${project.id}/tasks`}>
+                        <Columns3 size={14} /> Board
+                      </Link>
+                    </Button>
+                  </div>
                   {project.canManageProject && (
                     <Button asChild size="compact">
                       <Link href={`/app/projects/${project.id}/manage`}>

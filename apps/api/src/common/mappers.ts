@@ -8,6 +8,14 @@ import type {
   ProjectRole,
   ProjectStatus,
   ProjectSummaryDto,
+  ProjectTaskSummaryDto,
+  TaskActivityDto,
+  TaskActivityType,
+  TaskCommentDto,
+  TaskPriority,
+  TaskStatus,
+  TaskSummaryDto,
+  TaskUserRef,
 } from "@devcollab/shared";
 
 export function toOrganizationSummary(input: {
@@ -167,5 +175,122 @@ export function toAuditLogEntryDto(entry: {
     createdAt: entry.createdAt.toISOString(),
     projectId: entry.projectId,
     actor: entry.actor,
+  };
+}
+
+export function toTaskSummaryDto(task: {
+  id: string;
+  organizationId: string;
+  projectId: string;
+  sequenceNumber: number;
+  identifier: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  labels: string[];
+  dueDate: Date | null;
+  completedAt: Date | null;
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  assignee: TaskUserRef | null;
+  creator: TaskUserRef | null;
+  _count: { comments: number };
+}): TaskSummaryDto {
+  return {
+    id: task.id,
+    organizationId: task.organizationId,
+    projectId: task.projectId,
+    sequenceNumber: task.sequenceNumber,
+    identifier: task.identifier,
+    title: task.title,
+    status: task.status,
+    priority: task.priority,
+    labels: task.labels,
+    dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+    completedAt: task.completedAt ? task.completedAt.toISOString() : null,
+    archivedAt: task.archivedAt ? task.archivedAt.toISOString() : null,
+    createdAt: task.createdAt.toISOString(),
+    updatedAt: task.updatedAt.toISOString(),
+    assignee: task.assignee,
+    creator: task.creator,
+    commentCount: task._count.comments,
+  };
+}
+
+export function toTaskCommentDto(
+  comment: {
+    id: string;
+    taskId: string;
+    authorId: string | null;
+    body: string;
+    editedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    author: TaskUserRef | null;
+  },
+  actorUserId: string,
+  canManageProject: boolean,
+): TaskCommentDto {
+  const isAuthor = comment.authorId === actorUserId;
+  return {
+    id: comment.id,
+    taskId: comment.taskId,
+    authorId: comment.authorId,
+    body: comment.body,
+    editedAt: comment.editedAt ? comment.editedAt.toISOString() : null,
+    createdAt: comment.createdAt.toISOString(),
+    updatedAt: comment.updatedAt.toISOString(),
+    author: comment.author,
+    canEdit: isAuthor,
+    canDelete: isAuthor || canManageProject,
+  };
+}
+
+export function toTaskActivityDto(activity: {
+  id: string;
+  taskId: string;
+  projectId: string;
+  actorId: string | null;
+  eventType: TaskActivityType;
+  field: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  summary: string;
+  createdAt: Date;
+  actor: TaskUserRef | null;
+}): TaskActivityDto {
+  return {
+    id: activity.id,
+    taskId: activity.taskId,
+    projectId: activity.projectId,
+    actorId: activity.actorId,
+    eventType: activity.eventType,
+    field: activity.field,
+    oldValue: activity.oldValue,
+    newValue: activity.newValue,
+    summary: activity.summary,
+    createdAt: activity.createdAt.toISOString(),
+    actor: activity.actor,
+  };
+}
+
+export function emptyTaskSummary(): ProjectTaskSummaryDto {
+  return {
+    totalActive: 0,
+    backlog: 0,
+    todo: 0,
+    inProgress: 0,
+    inReview: 0,
+    done: 0,
+    overdue: 0,
+    unassigned: 0,
+    archived: 0,
+    priorityBreakdown: {
+      URGENT: 0,
+      HIGH: 0,
+      MEDIUM: 0,
+      LOW: 0,
+    },
   };
 }

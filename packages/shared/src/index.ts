@@ -9,6 +9,128 @@ export type InvitationStatus = "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED";
 export type ProjectStatus = "ACTIVE" | "ARCHIVED";
 export type ProjectRole = "PROJECT_MANAGER" | "DEVELOPER";
 
+export type TaskStatus = "BACKLOG" | "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
+export type TaskPriority = "URGENT" | "HIGH" | "MEDIUM" | "LOW";
+export type TaskActivityType =
+  | "TASK_CREATED"
+  | "TITLE_UPDATED"
+  | "DESCRIPTION_UPDATED"
+  | "STATUS_CHANGED"
+  | "PRIORITY_CHANGED"
+  | "ASSIGNEE_CHANGED"
+  | "DUE_DATE_CHANGED"
+  | "LABELS_UPDATED"
+  | "TASK_COMPLETED"
+  | "TASK_REOPENED"
+  | "TASK_ARCHIVED"
+  | "TASK_RESTORED";
+
+export interface TaskUserRef {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+}
+
+export interface TaskSummaryDto {
+  id: string;
+  organizationId: string;
+  projectId: string;
+  sequenceNumber: number;
+  identifier: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  labels: string[];
+  dueDate: string | null;
+  completedAt: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignee: TaskUserRef | null;
+  creator: TaskUserRef | null;
+  commentCount: number;
+}
+
+export interface TaskCommentDto {
+  id: string;
+  taskId: string;
+  authorId: string | null;
+  body: string;
+  editedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  author: TaskUserRef | null;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+export interface TaskActivityDto {
+  id: string;
+  taskId: string;
+  projectId: string;
+  actorId: string | null;
+  eventType: TaskActivityType;
+  field: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  summary: string;
+  createdAt: string;
+  actor: TaskUserRef | null;
+}
+
+export interface TaskDetailDto extends TaskSummaryDto {
+  description: string | null;
+  projectStatus: ProjectStatus;
+  projectName: string;
+  projectKey: string;
+  canEditTask: boolean;
+  canArchiveTask: boolean;
+  comments: TaskCommentDto[];
+  activities: TaskActivityDto[];
+}
+
+export interface ProjectTaskSummaryDto {
+  totalActive: number;
+  backlog: number;
+  todo: number;
+  inProgress: number;
+  inReview: number;
+  done: number;
+  overdue: number;
+  unassigned: number;
+  archived: number;
+  priorityBreakdown: Record<TaskPriority, number>;
+}
+
+export interface ProjectTasksListResponseDto {
+  project: ProjectDetailDto;
+  orgMembers: OrganizationMemberDto[];
+  items: TaskSummaryDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  summary: ProjectTaskSummaryDto;
+}
+
+export interface MyTaskItemDto extends TaskSummaryDto {
+  projectName: string;
+  projectKey: string;
+  organizationName: string;
+  organizationSlug: string;
+}
+
+export interface MyTasksResponseDto {
+  items: MyTaskItemDto[];
+  counts: {
+    active: number;
+    dueSoon: number;
+    overdue: number;
+    completed: number;
+    all: number;
+  };
+}
+
 export interface UserSummary {
   id: string;
   name: string | null;
@@ -121,6 +243,8 @@ export interface ProjectSummaryDto {
 export interface ProjectDetailDto extends ProjectSummaryDto {
   createdBy: { id: string; name: string | null; email: string } | null;
   members: ProjectPersonDto[];
+  taskSummary?: ProjectTaskSummaryDto;
+  recentTasks?: TaskSummaryDto[];
 }
 
 export interface AuditLogEntryDto {
@@ -155,4 +279,6 @@ export interface ProjectManagementDashboardDto {
   canAssignDeveloper: boolean;
   orgMembers: OrganizationMemberDto[];
   recentActivity: AuditLogEntryDto[];
+  taskSummary: ProjectTaskSummaryDto;
+  recentTaskActivity: TaskActivityDto[];
 }

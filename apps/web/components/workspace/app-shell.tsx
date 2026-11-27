@@ -9,6 +9,7 @@ import {
   ChevronsUpDown,
   FolderGit2,
   LayoutDashboard,
+  ListTodo,
   MailPlus,
   Menu,
   Moon,
@@ -39,13 +40,25 @@ function buildBreadcrumbs(pathname: string, orgName: string | null) {
 
   if (pathname === "/app") {
     parts.push({ label: "Overview" });
+  } else if (pathname.startsWith("/app/tasks")) {
+    parts.push({ label: "My Tasks" });
   } else if (pathname.startsWith("/app/organizations/new")) {
     parts.push({ label: "New organization" });
   } else if (pathname.startsWith("/app/projects/")) {
     parts.push({ label: "Projects", href: "/app/projects" });
-    if (pathname.endsWith("/manage")) {
-      parts.push({ label: "Project", href: pathname.replace(/\/manage$/, "") });
+    const match = /^\/app\/projects\/([^/]+)(\/.*)?$/.exec(pathname);
+    const projectBase = match ? `/app/projects/${match[1]}` : "/app/projects";
+    const rest = match?.[2] ?? "";
+    if (rest === "/manage") {
+      parts.push({ label: "Project", href: projectBase });
       parts.push({ label: "Management" });
+    } else if (rest === "/tasks") {
+      parts.push({ label: "Project", href: projectBase });
+      parts.push({ label: "Tasks" });
+    } else if (rest.startsWith("/tasks/")) {
+      parts.push({ label: "Project", href: projectBase });
+      parts.push({ label: "Tasks", href: `${projectBase}/tasks` });
+      parts.push({ label: "Task detail" });
     } else {
       parts.push({ label: "Project detail" });
     }
@@ -270,6 +283,15 @@ export function AppShell({
               >
                 <FolderGit2 size={17} />
                 Projects
+              </Link>
+              <Link
+                href="/app/tasks"
+                className="sidebar-link"
+                aria-current={isActive("/app/tasks") ? "page" : undefined}
+                onClick={() => setDrawerOpen(false)}
+              >
+                <ListTodo size={17} />
+                My Tasks
               </Link>
               {isOrgAdmin && (
                 <>

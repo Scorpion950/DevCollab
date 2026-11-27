@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FolderGit2, Layers3, ShieldCheck, UserRound } from "lucide-react";
+import { Columns3, FolderGit2, Layers3, ListTodo, ShieldCheck, UserRound } from "lucide-react";
 import type { OrganizationSummary, ProjectSummaryDto, UserSummary } from "@devcollab/shared";
 import { Button } from "@/components/ui/button";
 
@@ -31,6 +31,12 @@ export function DeveloperWorkspace({
         </div>
 
         <div className="page-actions">
+          <Button asChild variant="secondary" size="compact">
+            <Link href="/app/tasks">
+              <ListTodo size={15} />
+              My Tasks
+            </Link>
+          </Button>
           <Button asChild variant="secondary" size="compact">
             <Link href="/app/profile">
               <UserRound size={15} />
@@ -102,9 +108,16 @@ export function DeveloperWorkspace({
                   </p>
                 </div>
                 <div className="project-card-foot">
-                  <Button asChild variant="secondary" size="compact">
-                    <Link href={`/app/projects/${project.id}`}>Open workspace</Link>
-                  </Button>
+                  <div className="inline-actions" style={{ gap: ".45rem" }}>
+                    <Button asChild variant="secondary" size="compact">
+                      <Link href={`/app/projects/${project.id}`}>Overview</Link>
+                    </Button>
+                    <Button asChild variant="secondary" size="compact">
+                      <Link href={`/app/projects/${project.id}/tasks`}>
+                        <Columns3 size={14} /> Board
+                      </Link>
+                    </Button>
+                  </div>
                   {project.canManageProject && (
                     <Button asChild size="compact">
                       <Link href={`/app/projects/${project.id}/manage`}>

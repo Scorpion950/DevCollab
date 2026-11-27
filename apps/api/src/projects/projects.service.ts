@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import type {
   OrganizationRole,
@@ -15,6 +16,7 @@ import type {
 } from "@devcollab/shared";
 import { canAssignProjectRole } from "../authorization/authorization.service";
 import {
+  emptyTaskSummary,
   toAuditLogEntryDto,
   toOrganizationMemberDto,
   toProjectDetailDto,
@@ -28,10 +30,14 @@ import {
   requireProjectSlug,
 } from "../common/validation";
 import { DatabaseService } from "../database/database.service";
+import { TasksService } from "../tasks/tasks.service";
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    @Optional() private readonly tasks?: TasksService,
+  ) {}
 
   async listProjects(
     orgId: string,
@@ -167,22 +173,30 @@ export class ProjectsService {
     actorUserId: string,
     actorOrgRole: OrganizationRole,
   ): Promise<ProjectDetailDto> {
-    const project = await this.db.prisma.project.findFirst({
-      where: { id: projectId, organizationId: orgId },
-      include: {
-        createdBy: { select: { id: true, name: true, email: true } },
-        roleAssignments: {
-          orderBy: [{ role: "asc" }, { createdAt: "asc" }],
-          include: {
-            user: { select: { id: true, name: true, email: true, image: true } },
+    const [project, taskSummary, recentTasks] = await Promise.all([
+      this.db.prisma.project.findFirst({
+        where: { id: projectId, organizationId: orgId },
+        include: {
+          createdBy: { select: { id: true, name: true, email: true } },
+          roleAssignments: {
+            orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+            include: {
+              user: { select: { id: true, name: true, email: true, image: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      this.tasks ? this.tasks.getProjectTaskSummary(orgId, projectId) : Promise.resolve(undefined),
+      this.tasks ? this.tasks.listRecentProjectTasks(orgId, projectId, 5) : Promise.resolve(undefined),
+    ]);
     if (!project) {
       throw new NotFoundException("Project not found in this organization.");
     }
-    return toProjectDetailDto(project, actorUserId, actorOrgRole);
+    return {
+      ...toProjectDetailDto(project, actorUserId, actorOrgRole),
+      ...(taskSummary ? { taskSummary } : {}),
+      ...(recentTasks ? { recentTasks } : {}),
+    };
   }
 
   async getManagementDashboard(
@@ -191,7 +205,7 @@ export class ProjectsService {
     actorUserId: string,
     actorOrgRole: OrganizationRole,
   ): Promise<ProjectManagementDashboardDto> {
-    const [project, orgMembers, recentActivity] = await Promise.all([
+    const [project, orgMembers, recentActivity, recentTaskActivity] = await Promise.all([
       this.getProjectDetail(orgId, projectId, actorUserId, actorOrgRole),
       this.db.prisma.organizationMembership.findMany({
         where: { organizationId: orgId, status: "ACTIVE" },
@@ -206,6 +220,7 @@ export class ProjectsService {
         take: 15,
         include: { actor: { select: { id: true, name: true, email: true } } },
       }),
+      this.tasks ? this.tasks.listRecentTaskActivity(orgId, projectId, 12) : Promise.resolve([]),
     ]);
 
     const isOrgAdmin = actorOrgRole === "OWNER" || actorOrgRole === "ADMIN";
@@ -218,6 +233,8 @@ export class ProjectsService {
       canAssignDeveloper: project.canManageProject,
       orgMembers: orgMembers.map(toOrganizationMemberDto),
       recentActivity: recentActivity.map(toAuditLogEntryDto),
+      taskSummary: project.taskSummary ?? emptyTaskSummary(),
+      recentTaskActivity,
     };
   }
 

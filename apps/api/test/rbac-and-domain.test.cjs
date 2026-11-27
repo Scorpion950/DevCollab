@@ -295,6 +295,9 @@ function createMockDb() {
         return p;
       },
     },
+    task: {
+      updateMany: async () => ({ count: 0 }),
+    },
     projectRoleAssignment: {
       findUnique: async ({ where, include }) => {
         const k = where.projectId_userId;

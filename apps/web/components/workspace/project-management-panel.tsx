@@ -22,6 +22,8 @@ import {
 } from "@/app/app/actions";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "./confirm-dialog";
+import { ProjectSubnav } from "./project-subnav";
+import { formatDateTime } from "./task-badges";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -47,6 +49,8 @@ export function ProjectManagementPanel({
     canAssignDeveloper,
     orgMembers,
     recentActivity,
+    taskSummary,
+    recentTaskActivity,
   } = data;
 
   const [editState, editAction, editPending] = useActionState<ActionState, FormData>(
@@ -107,6 +111,11 @@ export function ProjectManagementPanel({
               ? ` by ${project.createdBy.name || project.createdBy.email}`
               : ""}
           </p>
+          <ProjectSubnav
+            projectId={project.id}
+            active="manage"
+            canManageProject
+          />
         </div>
 
         <div className="page-actions">
@@ -371,20 +380,69 @@ export function ProjectManagementPanel({
         <div className="form-stack">
           <section className="app-card" aria-labelledby="planned-telemetry-heading">
             <div className="app-card-header">
-              <h2 id="planned-telemetry-heading">Delivery &amp; AI readiness</h2>
-              <span className="badge">Upcoming milestones</span>
+              <h2 id="planned-telemetry-heading">Task delivery metrics</h2>
+              <Link href={`/app/projects/${project.id}/tasks`} className="badge">
+                Open board
+              </Link>
             </div>
-            <p className="field-hint" style={{ marginBottom: "1rem" }}>
-              Task completion, pull requests, test results, AI execution status, and AI spend are not
-              connected yet. Real metrics will appear here once those systems are integrated.
-            </p>
-            <div className="empty-panel">
-              <h3>No connected delivery telemetry yet</h3>
-              <p>
-                Connect repositories, task tracking, and agent runs in upcoming bricks to inspect
-                project delivery analytics.
-              </p>
+            <dl className="stat-grid" style={{ marginBottom: "1rem" }}>
+              <div className="stat-card">
+                <dt>Active tasks</dt>
+                <dd>{taskSummary.totalActive}</dd>
+              </div>
+              <div className="stat-card">
+                <dt>Completed</dt>
+                <dd>{taskSummary.done}</dd>
+              </div>
+              <div className="stat-card">
+                <dt>In review</dt>
+                <dd>{taskSummary.inReview}</dd>
+              </div>
+              <div className="stat-card">
+                <dt>Overdue</dt>
+                <dd style={{ color: taskSummary.overdue > 0 ? "var(--warm-ink)" : undefined }}>
+                  {taskSummary.overdue}
+                </dd>
+              </div>
+              <div className="stat-card">
+                <dt>Unassigned</dt>
+                <dd>{taskSummary.unassigned}</dd>
+              </div>
+              <div className="stat-card">
+                <dt>Archived tasks</dt>
+                <dd>{taskSummary.archived}</dd>
+              </div>
+            </dl>
+
+            <div className="inline-actions" style={{ gap: ".45rem", marginBottom: "1rem" }}>
+              <span className="badge priority-urgent">Urgent: {taskSummary.priorityBreakdown.URGENT}</span>
+              <span className="badge priority-high">High: {taskSummary.priorityBreakdown.HIGH}</span>
+              <span className="badge">Medium: {taskSummary.priorityBreakdown.MEDIUM}</span>
+              <span className="badge priority-low">Low: {taskSummary.priorityBreakdown.LOW}</span>
             </div>
+
+            <div className="banner banner-neutral" style={{ fontSize: ".83rem" }}>
+              Pull request activity, test runs, AI agent executions, and AI spend remain upcoming
+              milestones.
+            </div>
+          </section>
+
+          <section className="app-card" aria-labelledby="project-task-activity-heading">
+            <div className="app-card-header">
+              <h2 id="project-task-activity-heading">Recent task activity</h2>
+            </div>
+            {recentTaskActivity.length === 0 ? (
+              <p className="field-hint">No task activity recorded yet.</p>
+            ) : (
+              <ul className="activity-list">
+                {recentTaskActivity.map((entry) => (
+                  <li key={entry.id} className="activity-item">
+                    <p>{entry.summary}</p>
+                    <small>{formatDateTime(entry.createdAt)}</small>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section className="app-card" aria-labelledby="project-activity-heading">

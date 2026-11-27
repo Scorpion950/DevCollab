@@ -1,7 +1,14 @@
 import Link from "next/link";
-import { ArrowLeft, FolderGit2, Layers3, ShieldCheck, UsersRound } from "lucide-react";
+import { ArrowLeft, Columns3, FolderGit2, Layers3, List, ShieldCheck, UsersRound } from "lucide-react";
 import type { ProjectDetailDto } from "@devcollab/shared";
 import { Button } from "@/components/ui/button";
+import { ProjectSubnav } from "@/components/workspace/project-subnav";
+import {
+  DueDateChip,
+  TaskPriorityBadge,
+  TaskStatusBadge,
+  UserAvatar,
+} from "@/components/workspace/task-badges";
 import { apiUserFetch } from "@/lib/server/backend";
 import { getWorkspaceBootstrap } from "@/lib/server/dal";
 
@@ -59,6 +66,8 @@ export default async function ProjectDetailPage({
 
   const project = res.data;
   const developers = project.members.filter((m) => m.role === "DEVELOPER");
+  const summary = project.taskSummary;
+  const recentTasks = project.recentTasks ?? [];
 
   return (
     <>
@@ -75,6 +84,11 @@ export default async function ProjectDetailPage({
           <p className="page-subtitle">
             {project.description || "No project description has been added yet."}
           </p>
+          <ProjectSubnav
+            projectId={project.id}
+            active="overview"
+            canManageProject={project.canManageProject}
+          />
         </div>
 
         <div className="page-actions">
@@ -83,10 +97,15 @@ export default async function ProjectDetailPage({
               <ArrowLeft size={14} /> All projects
             </Link>
           </Button>
+          <Button asChild size="compact">
+            <Link href={`/app/projects/${project.id}/tasks`}>
+              <Columns3 size={15} /> Open Board
+            </Link>
+          </Button>
           {project.canManageProject && (
-            <Button asChild size="compact">
+            <Button asChild variant="secondary" size="compact">
               <Link href={`/app/projects/${project.id}/manage`}>
-                <ShieldCheck size={15} /> Project management
+                <ShieldCheck size={15} /> Management
               </Link>
             </Button>
           )}
@@ -100,41 +119,90 @@ export default async function ProjectDetailPage({
         </p>
       )}
 
+      {summary && (
+        <dl className="stat-grid" aria-label="Project task summary">
+          <div className="stat-card">
+            <dt>Active tasks</dt>
+            <dd>{summary.totalActive}</dd>
+          </div>
+          <div className="stat-card">
+            <dt>In progress</dt>
+            <dd>{summary.inProgress}</dd>
+          </div>
+          <div className="stat-card">
+            <dt>In review</dt>
+            <dd>{summary.inReview}</dd>
+          </div>
+          <div className="stat-card">
+            <dt>Completed</dt>
+            <dd>{summary.done}</dd>
+          </div>
+        </dl>
+      )}
+
       <div className="panel-grid">
-        <section className="app-card" aria-labelledby="project-overview-heading">
-          <div className="app-card-header">
-            <h2 id="project-overview-heading">Project workspace</h2>
-            <span className="badge">Created {formatDate(project.createdAt)}</span>
-          </div>
-
-          <dl className="stat-grid" style={{ marginBottom: "1.25rem" }}>
-            <div className="stat-card">
-              <dt>Identifier</dt>
-              <dd style={{ fontSize: "1.45rem", fontFamily: "var(--mono-font)" }}>
-                {project.key}
-              </dd>
+        <div className="form-stack">
+          <section className="app-card" aria-labelledby="project-recent-tasks-heading">
+            <div className="app-card-header">
+              <h2 id="project-recent-tasks-heading">Recently updated tasks</h2>
+              <div className="inline-actions">
+                <Link href={`/app/projects/${project.id}/tasks`} className="badge">
+                  <Columns3 size={12} /> Board
+                </Link>
+                <Link href={`/app/projects/${project.id}/tasks?view=list`} className="badge">
+                  <List size={12} /> List
+                </Link>
+              </div>
             </div>
-            <div className="stat-card">
-              <dt>Your project role</dt>
-              <dd style={{ fontSize: "1.15rem", color: "var(--foreground)" }}>
-                {project.currentUserProjectRole === "PROJECT_MANAGER"
-                  ? "Project Manager"
-                  : project.currentUserProjectRole === "DEVELOPER"
-                    ? "Developer"
-                    : "Org Member"}
-              </dd>
-            </div>
-          </dl>
 
-          <div className="empty-panel">
-            <Layers3 size={24} />
-            <h3>Engineering capabilities connecting next</h3>
-            <p>
-              GitHub repository sync, task boards, cloud development environments, and AI coding
-              reviews will attach directly to this project in upcoming development bricks.
-            </p>
-          </div>
-        </section>
+            {recentTasks.length === 0 ? (
+              <div className="empty-panel">
+                <h3>No active tasks yet</h3>
+                <p>Open the project board to create and track tasks with your team.</p>
+                <Button asChild size="compact">
+                  <Link href={`/app/projects/${project.id}/tasks`}>Go to Kanban board</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="form-stack" style={{ gap: ".65rem" }}>
+                {recentTasks.map((task) => (
+                  <Link
+                    key={task.id}
+                    href={`/app/projects/${project.id}/tasks/${task.id}`}
+                    className="overview-task-row"
+                  >
+                    <div className="inline-actions" style={{ gap: ".55rem", minWidth: 0 }}>
+                      <span className="project-key">{task.identifier}</span>
+                      <strong className="truncate-text">{task.title}</strong>
+                    </div>
+                    <div className="inline-actions" style={{ gap: ".45rem" }}>
+                      <TaskStatusBadge status={task.status} />
+                      <TaskPriorityBadge priority={task.priority} />
+                      <DueDateChip dueDate={task.dueDate} status={task.status} />
+                      <UserAvatar user={task.assignee} size="sm" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="app-card" aria-labelledby="project-overview-heading">
+            <div className="app-card-header">
+              <h2 id="project-overview-heading">Project workspace</h2>
+              <span className="badge">Created {formatDate(project.createdAt)}</span>
+            </div>
+
+            <div className="empty-panel">
+              <Layers3 size={24} />
+              <h3>Upcoming engineering integrations</h3>
+              <p>
+                GitHub repository sync, cloud development environments, and autonomous AI agent
+                reviews will connect directly to these project tasks in future milestones.
+              </p>
+            </div>
+          </section>
+        </div>
 
         <section className="app-card" aria-labelledby="project-team-heading">
           <div className="app-card-header">

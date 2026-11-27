@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, FolderGit2, FolderPlus, MailPlus, ShieldCheck, UsersRound } from "lucide-react";
+import { ArrowRight, Columns3, FolderGit2, FolderPlus, MailPlus, ShieldCheck, UsersRound } from "lucide-react";
 import type { OrganizationDashboardDto } from "@devcollab/shared";
 import { Button } from "@/components/ui/button";
 
@@ -125,7 +125,12 @@ export function OrganizationDashboard({ data }: { data: OrganizationDashboardDto
                   </div>
                   <div className="inline-actions">
                     <Button asChild variant="secondary" size="compact">
-                      <Link href={`/app/projects/${project.id}`}>Open</Link>
+                      <Link href={`/app/projects/${project.id}`}>Overview</Link>
+                    </Button>
+                    <Button asChild variant="secondary" size="compact">
+                      <Link href={`/app/projects/${project.id}/tasks`}>
+                        <Columns3 size={14} /> Board
+                      </Link>
                     </Button>
                     <Button asChild size="compact">
                       <Link href={`/app/projects/${project.id}/manage`}>

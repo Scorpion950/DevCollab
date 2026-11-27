@@ -8,6 +8,7 @@ import { InvitationsModule } from "./invitations/invitations.module";
 import { MembershipsModule } from "./memberships/memberships.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { TasksModule } from "./tasks/tasks.module";
 import { UsersModule } from "./users/users.module";
 import { WorkspaceModule } from "./workspace/workspace.module";
 
@@ -23,6 +24,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
     MembershipsModule,
     InvitationsModule,
     ProjectsModule,
+    TasksModule,
   ],
 })
 export class AppModule {}

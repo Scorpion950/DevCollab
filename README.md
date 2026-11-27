@@ -18,12 +18,12 @@ Engineering work often splits across separate tools for access control, task tra
 - **Organization & project RBAC:** Organization-level roles (`OWNER`, `ADMIN`, `MEMBER`) and separate project-level roles (`PROJECT_MANAGER`, `DEVELOPER`) enforced in NestJS guards and services, including last-Owner protection and ownership transfer.
 - **Secure invitations:** SHA-256 hashed single-use invitation links with expiration, revocation, email-match verification, and copy-link sharing (automatic email delivery is not configured yet).
 - **Projects & dashboards:** Create, view, edit, archive, and restore projects inside organizations; dedicated Organization Dashboard (`OWNER`/`ADMIN`), Project Management Dashboard (`OWNER`/`ADMIN`/`PROJECT_MANAGER`), and Developer Workspace (`MEMBER`).
+- **Task management, Kanban boards & collaboration:** Project-scoped task identifiers (`KEY-001`), Kanban board (drag-and-drop plus accessible status controls) and synchronized list view, search/filter/sort, **My Tasks** cross-project view, task archiving/restoring, task comments (author edit and manager moderation), and persistent task activity history.
 - **Workspace theming:** Dark (default) and warm off-white themes inside `/app` with cookie persistence; public marketing and auth pages remain dark.
 
 ### Planned (upcoming milestones)
 
 - GitHub repository synchronization
-- Task CRUD and Kanban boards
 - Browser IDE, cloud dev containers, and integrated terminal
 - Autonomous AI coding agents, patch review workflows, and AI cost tracking
 - Automated invitation and verification email delivery
@@ -42,7 +42,7 @@ Engineering work often splits across separate tools for access control, task tra
 | Package / App | Responsibility |
 | --- | --- |
 | `apps/web` | Next.js App Router frontend, Auth.js session handling, BFF server actions, marketing pages, and `/app` workspace UI |
-| `apps/api` | NestJS REST API, authorization guards/policies, and organization, membership, invitation, and project modules |
+| `apps/api` | NestJS REST API, authorization guards/policies, and organization, membership, invitation, project, task, comment, and activity modules |
 | `packages/database` | Prisma schema, PostgreSQL driver adapter, Neon configuration, and additive migrations |
 | `packages/shared` | Shared TypeScript DTO contracts across web and API |
 
