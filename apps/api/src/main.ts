@@ -6,7 +6,7 @@ import { AppModule } from "./app.module";
 import type { AppConfiguration } from "./config/environment";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService<AppConfiguration, true>);
   const { port, origins } = config.get("http", { infer: true });
   app.setGlobalPrefix("api");

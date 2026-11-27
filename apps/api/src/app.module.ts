@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { AuthorizationModule } from "./authorization/authorization.module";
 import { validateEnvironment } from "./config/environment";
 import { DatabaseModule } from "./database/database.module";
+import { GitHubModule } from "./github/github.module";
 import { HealthModule } from "./health/health.module";
 import { InvitationsModule } from "./invitations/invitations.module";
 import { MembershipsModule } from "./memberships/memberships.module";
@@ -25,6 +26,7 @@ import { WorkspaceModule } from "./workspace/workspace.module";
     InvitationsModule,
     ProjectsModule,
     TasksModule,
+    GitHubModule,
   ],
 })
 export class AppModule {}

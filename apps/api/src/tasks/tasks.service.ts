@@ -22,6 +22,7 @@ import type {
 import { AuthorizationService } from "../authorization/authorization.service";
 import {
   emptyTaskSummary,
+  toLinkedPullRequestRefDto,
   toOrganizationMemberDto,
   toProjectDetailDto,
   toTaskActivityDto,
@@ -298,33 +299,34 @@ export class TasksService {
     const assigneeId =
       typeof body?.assigneeId === "string" && body.assigneeId.trim() ? body.assigneeId.trim() : null;
 
-    const createdId = await this.db.prisma.$transaction(async (tx) => {
-      const project = await tx.project.findFirst({
+    const [project, actor, assigneeMember] = await Promise.all([
+      this.db.prisma.project.findFirst({
         where: { id: projectId, organizationId: orgId },
         select: { id: true, status: true, key: true },
-      });
-      if (!project) {
-        throw new NotFoundException("Project not found in this organization.");
-      }
-      if (project.status === "ARCHIVED") {
-        throw new ConflictException("This project is archived. Restore it before creating tasks.");
-      }
-
-      if (assigneeId) {
-        const member = await tx.organizationMembership.findUnique({
-          where: { organizationId_userId: { organizationId: orgId, userId: assigneeId } },
-          select: { status: true },
-        });
-        if (!member || member.status !== "ACTIVE") {
-          throw new BadRequestException("Assignee must be an active member of this organization.");
-        }
-      }
-
-      const actor = await tx.user.findUnique({
+      }),
+      this.db.prisma.user.findUnique({
         where: { id: actorUserId },
         select: { name: true, email: true },
-      });
+      }),
+      assigneeId
+        ? this.db.prisma.organizationMembership.findUnique({
+            where: { organizationId_userId: { organizationId: orgId, userId: assigneeId } },
+            select: { status: true },
+          })
+        : Promise.resolve(null),
+    ]);
 
+    if (!project) {
+      throw new NotFoundException("Project not found in this organization.");
+    }
+    if (project.status === "ARCHIVED") {
+      throw new ConflictException("This project is archived. Restore it before creating tasks.");
+    }
+    if (assigneeId && (!assigneeMember || assigneeMember.status !== "ACTIVE")) {
+      throw new BadRequestException("Assignee must be an active member of this organization.");
+    }
+
+    const createdId = await this.db.prisma.$transaction(async (tx) => {
       const updatedProject = await tx.project.update({
         where: { id: projectId },
         data: { nextTaskNumber: { increment: 1 } },
@@ -388,24 +390,44 @@ export class TasksService {
     actorUserId: string,
     canManageProject: boolean,
   ): Promise<TaskDetailDto> {
-    const task = await this.db.prisma.task.findFirst({
-      where: { id: taskId, projectId, organizationId: orgId },
-      include: {
-        project: { select: { name: true, key: true, status: true } },
-        assignee: { select: USER_SELECT },
-        creator: { select: USER_SELECT },
-        _count: { select: { comments: true } },
-        comments: {
-          orderBy: [{ createdAt: "asc" }],
-          include: { author: { select: USER_SELECT } },
+    const [task, linkedPrRows] = await Promise.all([
+      this.db.prisma.task.findFirst({
+        where: { id: taskId, projectId, organizationId: orgId },
+        include: {
+          project: { select: { name: true, key: true, status: true } },
+          assignee: { select: USER_SELECT },
+          creator: { select: USER_SELECT },
+          _count: { select: { comments: true } },
+          comments: {
+            orderBy: [{ createdAt: "asc" }],
+            include: { author: { select: USER_SELECT } },
+          },
+          activities: {
+            orderBy: [{ createdAt: "desc" }],
+            take: 100,
+            include: { actor: { select: USER_SELECT } },
+          },
         },
-        activities: {
-          orderBy: [{ createdAt: "desc" }],
-          take: 100,
-          include: { actor: { select: USER_SELECT } },
-        },
-      },
-    });
+      }),
+      this.db.prisma.taskPullRequestLink
+        ? this.db.prisma.taskPullRequestLink.findMany({
+            where: {
+              organizationId: orgId,
+              projectId,
+              taskId,
+              pullRequest: { projectRepository: { status: "CONNECTED" } },
+            },
+            orderBy: [{ createdAt: "desc" }],
+            include: {
+              pullRequest: {
+                include: {
+                  projectRepository: { select: { fullName: true } },
+                },
+              },
+            },
+          })
+        : Promise.resolve([]),
+    ]);
 
     if (!task) {
       throw new NotFoundException("Task not found in this project.");
@@ -423,6 +445,7 @@ export class TasksService {
       canArchiveTask: canManageProject && task.project.status === "ACTIVE",
       comments: task.comments.map((c) => toTaskCommentDto(c, actorUserId, canManageProject)),
       activities: task.activities.map(toTaskActivityDto),
+      linkedPullRequests: linkedPrRows.map(toLinkedPullRequestRefDto),
     };
   }
 

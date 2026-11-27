@@ -74,7 +74,7 @@ async function performApiFetch<T>(
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(25_000),
     });
   } catch {
     return {

@@ -1,7 +1,21 @@
 import Link from "next/link";
-import { ArrowLeft, Columns3, FolderGit2, Layers3, List, ShieldCheck, UsersRound } from "lucide-react";
+import {
+  ArrowLeft,
+  Columns3,
+  ExternalLink,
+  FolderGit2,
+  GitBranch,
+  GitPullRequest,
+  List,
+  ShieldCheck,
+  UsersRound,
+} from "lucide-react";
 import type { ProjectDetailDto } from "@devcollab/shared";
 import { Button } from "@/components/ui/button";
+import {
+  RepoConnectionBadge,
+  RepoVisibilityBadge,
+} from "@/components/workspace/github-badges";
 import { ProjectSubnav } from "@/components/workspace/project-subnav";
 import {
   DueDateChip,
@@ -13,14 +27,6 @@ import { apiUserFetch } from "@/lib/server/backend";
 import { getWorkspaceBootstrap } from "@/lib/server/dal";
 
 export const dynamic = "force-dynamic";
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 export default async function ProjectDetailPage({
   params,
@@ -187,20 +193,66 @@ export default async function ProjectDetailPage({
             )}
           </section>
 
-          <section className="app-card" aria-labelledby="project-overview-heading">
+          <section className="app-card" aria-labelledby="project-repo-summary-heading">
             <div className="app-card-header">
-              <h2 id="project-overview-heading">Project workspace</h2>
-              <span className="badge">Created {formatDate(project.createdAt)}</span>
+              <h2 id="project-repo-summary-heading" className="inline-actions">
+                <FolderGit2 size={17} /> GitHub Repository
+              </h2>
+              <Link href={`/app/projects/${project.id}/repository`} className="badge">
+                {project.repositorySummary ? "Manage" : "Setup"}
+              </Link>
             </div>
 
-            <div className="empty-panel">
-              <Layers3 size={24} />
-              <h3>Upcoming engineering integrations</h3>
-              <p>
-                GitHub repository sync, cloud development environments, and autonomous AI agent
-                reviews will connect directly to these project tasks in future milestones.
-              </p>
-            </div>
+            {project.repositorySummary ? (
+              <div className="form-stack" style={{ gap: ".75rem" }}>
+                <div className="overview-task-row">
+                  <div className="inline-actions" style={{ gap: ".5rem", flexWrap: "wrap" }}>
+                    <strong>{project.repositorySummary.fullName}</strong>
+                    <RepoConnectionBadge status={project.repositorySummary.status} />
+                    <RepoVisibilityBadge isPrivate={project.repositorySummary.isPrivate} />
+                  </div>
+                  <span className="badge">
+                    <GitBranch size={11} /> {project.repositorySummary.defaultBranch}
+                  </span>
+                </div>
+                <div className="inline-actions" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+                  <span className="field-hint">
+                    {project.repositorySummary.openPrCount} open pull request
+                    {project.repositorySummary.openPrCount === 1 ? "" : "s"}
+                  </span>
+                  <div className="inline-actions" style={{ gap: ".5rem" }}>
+                    <Button asChild variant="secondary" size="compact">
+                      <Link href={`/app/projects/${project.id}/pull-requests`}>
+                        <GitPullRequest size={14} /> Pull Requests
+                      </Link>
+                    </Button>
+                    <Button asChild variant="secondary" size="compact">
+                      <a
+                        href={project.repositorySummary.htmlUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        GitHub <ExternalLink size={13} />
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-panel">
+                <FolderGit2 size={24} />
+                <h3>No repository connected</h3>
+                <p>
+                  Connect a GitHub repository to synchronize pull requests, review code diffs inside
+                  DevCollab, and link PRs directly to tasks.
+                </p>
+                <Button asChild size="compact">
+                  <Link href={`/app/projects/${project.id}/repository`}>
+                    Connect GitHub Repository
+                  </Link>
+                </Button>
+              </div>
+            )}
           </section>
         </div>
 

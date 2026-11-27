@@ -20,6 +20,7 @@ import {
   toAuditLogEntryDto,
   toOrganizationMemberDto,
   toProjectDetailDto,
+  toProjectRepositorySummaryDto,
   toProjectSummaryDto,
 } from "../common/mappers";
 import {
@@ -173,7 +174,7 @@ export class ProjectsService {
     actorUserId: string,
     actorOrgRole: OrganizationRole,
   ): Promise<ProjectDetailDto> {
-    const [project, taskSummary, recentTasks] = await Promise.all([
+    const [project, taskSummary, recentTasks, repoSummaryRow] = await Promise.all([
       this.db.prisma.project.findFirst({
         where: { id: projectId, organizationId: orgId },
         include: {
@@ -188,6 +189,14 @@ export class ProjectsService {
       }),
       this.tasks ? this.tasks.getProjectTaskSummary(orgId, projectId) : Promise.resolve(undefined),
       this.tasks ? this.tasks.listRecentProjectTasks(orgId, projectId, 5) : Promise.resolve(undefined),
+      this.db.prisma.projectRepository?.findFirst({
+        where: {
+          organizationId: orgId,
+          projectId,
+          status: { not: "DISCONNECTED" },
+        },
+        orderBy: [{ connectedAt: "desc" }],
+      }) ?? Promise.resolve(null),
     ]);
     if (!project) {
       throw new NotFoundException("Project not found in this organization.");
@@ -196,6 +205,7 @@ export class ProjectsService {
       ...toProjectDetailDto(project, actorUserId, actorOrgRole),
       ...(taskSummary ? { taskSummary } : {}),
       ...(recentTasks ? { recentTasks } : {}),
+      repositorySummary: repoSummaryRow ? toProjectRepositorySummaryDto(repoSummaryRow) : null,
     };
   }
 

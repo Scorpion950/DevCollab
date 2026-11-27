@@ -23,7 +23,36 @@ export type TaskActivityType =
   | "TASK_COMPLETED"
   | "TASK_REOPENED"
   | "TASK_ARCHIVED"
-  | "TASK_RESTORED";
+  | "TASK_RESTORED"
+  | "PR_LINKED"
+  | "PR_UNLINKED";
+
+export type GitHubInstallationStatus = "ACTIVE" | "SUSPENDED" | "REVOKED";
+export type RepositoryConnectionStatus = "CONNECTED" | "DISCONNECTED" | "ACCESS_REVOKED" | "ERROR";
+export type PullRequestState = "OPEN" | "CLOSED" | "MERGED";
+export type InternalReviewDecision =
+  | "NONE"
+  | "NEEDS_DISCUSSION"
+  | "CHANGES_SUGGESTED"
+  | "READY_FOR_REVIEW"
+  | "INTERNALLY_APPROVED";
+export type ReviewThreadStatus = "OPEN" | "RESOLVED";
+export type DiffLineSide = "LEFT" | "RIGHT";
+
+export interface LinkedPullRequestRefDto {
+  linkId: string;
+  pullRequestId: string;
+  number: number;
+  title: string;
+  state: PullRequestState;
+  isDraft: boolean;
+  headRef: string;
+  baseRef: string;
+  htmlUrl: string;
+  authorLogin: string;
+  repositoryFullName: string;
+  githubUpdatedAt: string;
+}
 
 export interface TaskUserRef {
   id: string;
@@ -88,6 +117,7 @@ export interface TaskDetailDto extends TaskSummaryDto {
   canArchiveTask: boolean;
   comments: TaskCommentDto[];
   activities: TaskActivityDto[];
+  linkedPullRequests?: LinkedPullRequestRefDto[];
 }
 
 export interface ProjectTaskSummaryDto {
@@ -240,11 +270,27 @@ export interface ProjectSummaryDto {
   canManageProject: boolean;
 }
 
+export interface ProjectRepositorySummaryDto {
+  id: string;
+  fullName: string;
+  owner: string;
+  name: string;
+  defaultBranch: string;
+  isPrivate: boolean;
+  htmlUrl: string;
+  status: RepositoryConnectionStatus;
+  openPrCount: number;
+  lastSyncedAt: string | null;
+  lastSyncStatus: string | null;
+  lastSyncError: string | null;
+}
+
 export interface ProjectDetailDto extends ProjectSummaryDto {
   createdBy: { id: string; name: string | null; email: string } | null;
   members: ProjectPersonDto[];
   taskSummary?: ProjectTaskSummaryDto;
   recentTasks?: TaskSummaryDto[];
+  repositorySummary?: ProjectRepositorySummaryDto | null;
 }
 
 export interface AuditLogEntryDto {
@@ -281,4 +327,195 @@ export interface ProjectManagementDashboardDto {
   recentActivity: AuditLogEntryDto[];
   taskSummary: ProjectTaskSummaryDto;
   recentTaskActivity: TaskActivityDto[];
+}
+
+export interface GitHubAppConfigStatusDto {
+  configured: boolean;
+  appSlug: string | null;
+  missingFields: string[];
+}
+
+export interface GitHubInstallationDto {
+  id: string;
+  githubInstallationId: string;
+  accountLogin: string;
+  accountType: string;
+  accountAvatarUrl: string | null;
+  status: GitHubInstallationStatus;
+  suspendedAt: string | null;
+}
+
+export interface GitHubAvailableRepoDto {
+  githubRepoId: string;
+  owner: string;
+  name: string;
+  fullName: string;
+  description: string | null;
+  defaultBranch: string;
+  isPrivate: boolean;
+  htmlUrl: string;
+}
+
+export interface ProjectRepositoryDto extends ProjectRepositorySummaryDto {
+  projectId: string;
+  organizationId: string;
+  githubRepoId: string;
+  description: string | null;
+  connectedAt: string;
+  installationId: string;
+  githubInstallationId: string;
+  installationStatus: GitHubInstallationStatus;
+  accountLogin: string;
+  accountType: string;
+  canManage: boolean;
+}
+
+export interface PullRequestSummaryDto {
+  id: string;
+  projectRepositoryId: string;
+  githubPrId: string;
+  number: number;
+  title: string;
+  state: PullRequestState;
+  isDraft: boolean;
+  authorLogin: string;
+  authorAvatarUrl: string | null;
+  headRef: string;
+  baseRef: string;
+  headSha: string;
+  mergeableState: string | null;
+  githubReviewDecision: string | null;
+  additions: number;
+  deletions: number;
+  changedFilesCount: number;
+  internalCommentCount: number;
+  linkedTaskCount: number;
+  htmlUrl: string;
+  githubCreatedAt: string;
+  githubUpdatedAt: string;
+  mergedAt: string | null;
+  closedAt: string | null;
+  lastSyncedAt: string;
+}
+
+export interface ProjectRepositoryOverviewDto {
+  githubApp: GitHubAppConfigStatusDto;
+  repository: ProjectRepositoryDto | null;
+  installations: GitHubInstallationDto[];
+  recentPullRequests: PullRequestSummaryDto[];
+  counts: {
+    open: number;
+    draft: number;
+    merged: number;
+    closed: number;
+  };
+  canManageRepository: boolean;
+}
+
+export interface PullRequestsListResponseDto {
+  githubApp: GitHubAppConfigStatusDto;
+  repository: ProjectRepositoryDto | null;
+  items: PullRequestSummaryDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: {
+    all: number;
+    open: number;
+    draft: number;
+    merged: number;
+    closed: number;
+  };
+}
+
+export interface PullRequestGitHubReviewDto {
+  id: string;
+  authorLogin: string;
+  authorAvatarUrl: string | null;
+  state: string;
+  submittedAt: string | null;
+}
+
+export interface PullRequestInternalReviewDto {
+  id: string;
+  pullRequestId: string;
+  reviewerId: string;
+  reviewer: TaskUserRef | null;
+  decision: InternalReviewDecision;
+  summary: string | null;
+  commitSha: string;
+  isOutdated: boolean;
+  updatedAt: string;
+}
+
+export interface PullRequestReviewCommentDto {
+  id: string;
+  pullRequestId: string;
+  authorId: string | null;
+  author: TaskUserRef | null;
+  body: string;
+  filePath: string | null;
+  lineNumber: number | null;
+  lineSide: DiffLineSide | null;
+  commitSha: string;
+  isOutdated: boolean;
+  status: ReviewThreadStatus;
+  resolvedBy: TaskUserRef | null;
+  resolvedAt: string | null;
+  editedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
+  canResolve: boolean;
+}
+
+export interface PullRequestLinkedTaskDto {
+  linkId: string;
+  taskId: string;
+  identifier: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignee: TaskUserRef | null;
+}
+
+export interface PullRequestDetailDto {
+  repository: ProjectRepositoryDto;
+  pullRequest: PullRequestSummaryDto & {
+    body: string | null;
+  };
+  githubReviews: PullRequestGitHubReviewDto[];
+  githubReviewsUnavailable: boolean;
+  internalReviews: PullRequestInternalReviewDto[];
+  comments: PullRequestReviewCommentDto[];
+  linkedTasks: PullRequestLinkedTaskDto[];
+  canReview: boolean;
+  canLinkTasks: boolean;
+  canManageRepository: boolean;
+  canSync: boolean;
+}
+
+export interface PullRequestChangedFileDto {
+  sha: string | null;
+  filename: string;
+  previousFilename: string | null;
+  status: "added" | "removed" | "modified" | "renamed" | "copied" | "changed" | "unchanged";
+  additions: number;
+  deletions: number;
+  changes: number;
+  patch: string | null;
+  isBinary: boolean;
+  isTruncated: boolean;
+  isLarge: boolean;
+  lineCount: number;
+  blobUrl: string | null;
+}
+
+export interface PullRequestFilesResponseDto {
+  files: PullRequestChangedFileDto[];
+  truncated: boolean;
+  headSha: string;
+  rateLimited: boolean;
+  unavailableReason: string | null;
 }

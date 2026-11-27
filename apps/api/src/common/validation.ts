@@ -210,3 +210,93 @@ export function requireCommentBody(input: unknown): string {
   }
   return trimmed;
 }
+
+const VALID_PR_STATES = new Set(["ALL", "OPEN", "CLOSED", "MERGED", "DRAFT"] as const);
+const VALID_INTERNAL_DECISIONS = new Set([
+  "NONE",
+  "NEEDS_DISCUSSION",
+  "CHANGES_SUGGESTED",
+  "READY_FOR_REVIEW",
+  "INTERNALLY_APPROVED",
+] as const);
+
+export function requireGitHubNumericId(input: unknown, fieldName = "ID"): string {
+  const raw = typeof input === "number" ? String(input) : typeof input === "string" ? input.trim() : "";
+  if (!/^\d{1,20}$/.test(raw)) {
+    throw new BadRequestException(`Valid GitHub ${fieldName} is required.`);
+  }
+  return raw;
+}
+
+export function requirePositiveIntParam(input: unknown, fieldName = "number"): number {
+  const parsed = typeof input === "number" ? input : Number.parseInt(String(input ?? ""), 10);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1_000_000_000) {
+    throw new BadRequestException(`Valid ${fieldName} is required.`);
+  }
+  return parsed;
+}
+
+export function parsePullRequestFilter(
+  input: unknown,
+): "ALL" | "OPEN" | "CLOSED" | "MERGED" | "DRAFT" {
+  if (input === undefined || input === null || input === "") return "OPEN";
+  const upper = String(input).trim().toUpperCase();
+  if (VALID_PR_STATES.has(upper as never)) {
+    return upper as "ALL" | "OPEN" | "CLOSED" | "MERGED" | "DRAFT";
+  }
+  throw new BadRequestException("Invalid pull request filter.");
+}
+
+export function parseInternalReviewDecision(
+  input: unknown,
+): "NONE" | "NEEDS_DISCUSSION" | "CHANGES_SUGGESTED" | "READY_FOR_REVIEW" | "INTERNALLY_APPROVED" {
+  if (typeof input !== "string" || !VALID_INTERNAL_DECISIONS.has(input as never)) {
+    throw new BadRequestException("Invalid internal review decision.");
+  }
+  return input as
+    | "NONE"
+    | "NEEDS_DISCUSSION"
+    | "CHANGES_SUGGESTED"
+    | "READY_FOR_REVIEW"
+    | "INTERNALLY_APPROVED";
+}
+
+export function optionalDiffAnchor(input: {
+  filePath?: unknown;
+  lineNumber?: unknown;
+  lineSide?: unknown;
+}): { filePath: string | null; lineNumber: number | null; lineSide: "LEFT" | "RIGHT" | null } {
+  const rawPath = input.filePath;
+  if (rawPath === undefined || rawPath === null || rawPath === "") {
+    if (input.lineNumber !== undefined && input.lineNumber !== null) {
+      throw new BadRequestException("File path is required when specifying a line number.");
+    }
+    return { filePath: null, lineNumber: null, lineSide: null };
+  }
+  if (typeof rawPath !== "string") {
+    throw new BadRequestException("File path must be a string.");
+  }
+  const filePath = rawPath.trim();
+  if (!filePath || filePath.length > 500 || filePath.includes("\0")) {
+    throw new BadRequestException("Invalid file path.");
+  }
+  if (input.lineNumber === undefined || input.lineNumber === null || input.lineNumber === "") {
+    return { filePath, lineNumber: null, lineSide: null };
+  }
+  const lineNumber = Number(input.lineNumber);
+  if (!Number.isInteger(lineNumber) || lineNumber < 1 || lineNumber > 1_000_000) {
+    throw new BadRequestException("Line number must be a positive integer.");
+  }
+  const side = input.lineSide === "LEFT" || input.lineSide === "RIGHT" ? input.lineSide : null;
+  if (!side) {
+    throw new BadRequestException("Line side must be LEFT or RIGHT when commenting on a line.");
+  }
+  return { filePath, lineNumber, lineSide: side };
+}
+
+export function requireRequiredId(input: unknown, label: string): string {
+  if (typeof input !== "string" || !input.trim() || input.trim().length > 128) {
+    throw new BadRequestException(`${label} is required.`);
+  }
+  return input.trim();
+}

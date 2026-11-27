@@ -29,6 +29,13 @@ model User {
   createdTasks         Task[]                   @relation("TaskCreator")
   taskComments         TaskComment[]
   taskActivities       TaskActivity[]
+  githubInstallations  OrganizationGitHubInstallation[]
+  githubInstallStates  GitHubInstallSession[]
+  connectedRepos       ProjectRepository[]      @relation("RepoConnector")
+  prReviewComments     PullRequestReviewComment[] @relation("PRCommentAuthor")
+  resolvedPrComments   PullRequestReviewComment[] @relation("PRCommentResolver")
+  prInternalReviews    PullRequestInternalReview[]
+  linkedTaskPrs        TaskPullRequestLink[]    @relation("TaskPrLinker")
 }
 model Account {
   userId String
@@ -105,6 +112,13 @@ model Organization {
   projects    Project[]
   auditLogs   OrganizationAuditLog[]
   tasks       Task[]
+  githubInstallations OrganizationGitHubInstallation[]
+  githubInstallStates GitHubInstallSession[]
+  projectRepositories ProjectRepository[]
+  pullRequests        PullRequest[]
+  prReviewComments    PullRequestReviewComment[]
+  prInternalReviews   PullRequestInternalReview[]
+  taskPrLinks         TaskPullRequestLink[]
 }
 
 model OrganizationMembership {
@@ -166,6 +180,12 @@ model Project {
   auditLogs       OrganizationAuditLog[]
   tasks           Task[]
   taskActivities  TaskActivity[]
+  githubInstallStates GitHubInstallSession[]
+  repositories    ProjectRepository[]
+  pullRequests    PullRequest[]
+  prReviewComments PullRequestReviewComment[]
+  prInternalReviews PullRequestInternalReview[]
+  taskPrLinks     TaskPullRequestLink[]
 
   @@unique([organizationId, key])
   @@unique([organizationId, slug])
@@ -234,6 +254,45 @@ enum TaskActivityType {
   TASK_REOPENED
   TASK_ARCHIVED
   TASK_RESTORED
+  PR_LINKED
+  PR_UNLINKED
+}
+
+enum GitHubInstallationStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+enum RepositoryConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  ACCESS_REVOKED
+  ERROR
+}
+
+enum PullRequestState {
+  OPEN
+  CLOSED
+  MERGED
+}
+
+enum InternalReviewDecision {
+  NONE
+  NEEDS_DISCUSSION
+  CHANGES_SUGGESTED
+  READY_FOR_REVIEW
+  INTERNALLY_APPROVED
+}
+
+enum ReviewThreadStatus {
+  OPEN
+  RESOLVED
+}
+
+enum DiffLineSide {
+  LEFT
+  RIGHT
 }
 
 model Task {
@@ -260,6 +319,7 @@ model Task {
   creator        User?          @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: SetNull)
   comments       TaskComment[]
   activities     TaskActivity[]
+  pullRequestLinks TaskPullRequestLink[]
 
   @@unique([projectId, sequenceNumber])
   @@unique([projectId, identifier])
@@ -299,4 +359,207 @@ model TaskActivity {
 
   @@index([taskId, createdAt])
   @@index([projectId, createdAt])
+}
+
+model GitHubAppInstallation {
+  id                   String                           @id @default(cuid())
+  githubInstallationId String                           @unique
+  accountLogin         String
+  accountType          String
+  accountAvatarUrl     String?
+  status               GitHubInstallationStatus         @default(ACTIVE)
+  permissions          Json?
+  suspendedAt          DateTime?
+  deletedAt            DateTime?
+  createdAt            DateTime                         @default(now())
+  updatedAt            DateTime                         @updatedAt
+  organizations        OrganizationGitHubInstallation[]
+  repositories         ProjectRepository[]
+}
+
+model OrganizationGitHubInstallation {
+  id             String                @id @default(cuid())
+  organizationId String
+  installationId String
+  connectedById  String?
+  createdAt      DateTime              @default(now())
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  installation   GitHubAppInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  connectedBy    User?                 @relation(fields: [connectedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, installationId])
+  @@index([installationId])
+}
+
+model GitHubInstallSession {
+  id             String       @id @default(cuid())
+  stateHash      String       @unique
+  userId         String
+  organizationId String
+  projectId      String
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model ProjectRepository {
+  id             String                     @id @default(cuid())
+  organizationId String
+  projectId      String
+  installationId String
+  githubRepoId   String
+  owner          String
+  name           String
+  fullName       String
+  defaultBranch  String
+  description    String?                    @db.Text
+  htmlUrl        String
+  isPrivate      Boolean                    @default(false)
+  status         RepositoryConnectionStatus @default(CONNECTED)
+  activeLock     String?
+  connectedById  String?
+  connectedAt    DateTime                   @default(now())
+  disconnectedAt DateTime?
+  lastSyncedAt   DateTime?
+  lastSyncStatus String?
+  lastSyncError  String?                    @db.Text
+  openPrCount    Int                        @default(0)
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  organization   Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  installation   GitHubAppInstallation      @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  connectedBy    User?                      @relation("RepoConnector", fields: [connectedById], references: [id], onDelete: SetNull)
+  pullRequests   PullRequest[]
+
+  @@unique([projectId, activeLock])
+  @@index([organizationId, projectId, status])
+  @@index([githubRepoId, status])
+  @@index([installationId])
+}
+
+model PullRequest {
+  id                   String                      @id @default(cuid())
+  organizationId       String
+  projectId            String
+  projectRepositoryId  String
+  githubPrId           String
+  number               Int
+  title                String
+  body                 String?                     @db.Text
+  state                PullRequestState
+  isDraft              Boolean                     @default(false)
+  authorLogin          String
+  authorAvatarUrl      String?
+  headRef              String
+  baseRef              String
+  headSha              String
+  mergeableState       String?
+  githubReviewDecision String?
+  additions            Int                         @default(0)
+  deletions            Int                         @default(0)
+  changedFilesCount    Int                         @default(0)
+  htmlUrl              String
+  githubCreatedAt      DateTime
+  githubUpdatedAt      DateTime
+  mergedAt             DateTime?
+  closedAt             DateTime?
+  lastSyncedAt         DateTime                    @default(now())
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  organization         Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project              Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectRepository    ProjectRepository           @relation(fields: [projectRepositoryId], references: [id], onDelete: Cascade)
+  reviewComments       PullRequestReviewComment[]
+  internalReviews      PullRequestInternalReview[]
+  taskLinks            TaskPullRequestLink[]
+
+  @@unique([projectRepositoryId, number])
+  @@index([projectRepositoryId, state, githubUpdatedAt])
+  @@index([projectId, state, githubUpdatedAt])
+}
+
+model PullRequestReviewComment {
+  id             String             @id @default(cuid())
+  organizationId String
+  projectId      String
+  pullRequestId  String
+  authorId       String?
+  body           String             @db.Text
+  filePath       String?
+  lineNumber     Int?
+  lineSide       DiffLineSide?
+  commitSha      String
+  status         ReviewThreadStatus @default(OPEN)
+  resolvedById   String?
+  resolvedAt     DateTime?
+  editedAt       DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pullRequest    PullRequest        @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  author         User?              @relation("PRCommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  resolvedBy     User?              @relation("PRCommentResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([pullRequestId, createdAt])
+  @@index([pullRequestId, filePath, createdAt])
+}
+
+model PullRequestInternalReview {
+  id             String                 @id @default(cuid())
+  organizationId String
+  projectId      String
+  pullRequestId  String
+  reviewerId     String
+  decision       InternalReviewDecision
+  summary        String?                @db.Text
+  commitSha      String
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  pullRequest    PullRequest            @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  reviewer       User                   @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@unique([pullRequestId, reviewerId])
+  @@index([pullRequestId, updatedAt])
+}
+
+model TaskPullRequestLink {
+  id             String       @id @default(cuid())
+  organizationId String
+  projectId      String
+  taskId         String
+  pullRequestId  String
+  linkedById     String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task           Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  pullRequest    PullRequest  @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  linkedBy       User?        @relation("TaskPrLinker", fields: [linkedById], references: [id], onDelete: SetNull)
+
+  @@unique([taskId, pullRequestId])
+  @@index([pullRequestId])
+}
+
+model GitHubWebhookDelivery {
+  id                   String    @id @default(cuid())
+  deliveryId           String    @unique
+  event                String
+  action               String?
+  githubInstallationId String?
+  githubRepoId         String?
+  status               String
+  errorMessage         String?   @db.Text
+  receivedAt           DateTime  @default(now())
+  processedAt          DateTime?
+
+  @@index([receivedAt])
 }

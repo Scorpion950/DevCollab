@@ -1,14 +1,28 @@
 import type {
   AuditLogEntryDto,
+  DiffLineSide,
+  GitHubInstallationDto,
+  GitHubInstallationStatus,
+  InternalReviewDecision,
+  LinkedPullRequestRefDto,
   OrganizationMemberDto,
   OrganizationRole,
   OrganizationSummary,
   ProjectDetailDto,
   ProjectPersonDto,
+  ProjectRepositoryDto,
+  ProjectRepositorySummaryDto,
   ProjectRole,
   ProjectStatus,
   ProjectSummaryDto,
   ProjectTaskSummaryDto,
+  PullRequestInternalReviewDto,
+  PullRequestLinkedTaskDto,
+  PullRequestReviewCommentDto,
+  PullRequestState,
+  PullRequestSummaryDto,
+  RepositoryConnectionStatus,
+  ReviewThreadStatus,
   TaskActivityDto,
   TaskActivityType,
   TaskCommentDto,
@@ -292,5 +306,281 @@ export function emptyTaskSummary(): ProjectTaskSummaryDto {
       MEDIUM: 0,
       LOW: 0,
     },
+  };
+}
+
+export function toGitHubInstallationDto(inst: {
+  id: string;
+  githubInstallationId: string;
+  accountLogin: string;
+  accountType: string;
+  accountAvatarUrl: string | null;
+  status: GitHubInstallationStatus;
+  suspendedAt: Date | null;
+}): GitHubInstallationDto {
+  return {
+    id: inst.id,
+    githubInstallationId: inst.githubInstallationId,
+    accountLogin: inst.accountLogin,
+    accountType: inst.accountType,
+    accountAvatarUrl: inst.accountAvatarUrl,
+    status: inst.status,
+    suspendedAt: inst.suspendedAt ? inst.suspendedAt.toISOString() : null,
+  };
+}
+
+export function toProjectRepositorySummaryDto(repo: {
+  id: string;
+  fullName: string;
+  owner: string;
+  name: string;
+  defaultBranch: string;
+  isPrivate: boolean;
+  htmlUrl: string;
+  status: RepositoryConnectionStatus;
+  openPrCount: number;
+  lastSyncedAt: Date | null;
+  lastSyncStatus: string | null;
+  lastSyncError: string | null;
+}): ProjectRepositorySummaryDto {
+  return {
+    id: repo.id,
+    fullName: repo.fullName,
+    owner: repo.owner,
+    name: repo.name,
+    defaultBranch: repo.defaultBranch,
+    isPrivate: repo.isPrivate,
+    htmlUrl: repo.htmlUrl,
+    status: repo.status,
+    openPrCount: repo.openPrCount,
+    lastSyncedAt: repo.lastSyncedAt ? repo.lastSyncedAt.toISOString() : null,
+    lastSyncStatus: repo.lastSyncStatus,
+    lastSyncError: repo.lastSyncError,
+  };
+}
+
+export function toProjectRepositoryDto(
+  repo: {
+    id: string;
+    projectId: string;
+    organizationId: string;
+    installationId: string;
+    githubRepoId: string;
+    owner: string;
+    name: string;
+    fullName: string;
+    defaultBranch: string;
+    description: string | null;
+    htmlUrl: string;
+    isPrivate: boolean;
+    status: RepositoryConnectionStatus;
+    connectedAt: Date;
+    lastSyncedAt: Date | null;
+    lastSyncStatus: string | null;
+    lastSyncError: string | null;
+    openPrCount: number;
+    installation: {
+      githubInstallationId: string;
+      status: GitHubInstallationStatus;
+      accountLogin: string;
+      accountType: string;
+    };
+  },
+  canManage: boolean,
+): ProjectRepositoryDto {
+  return {
+    ...toProjectRepositorySummaryDto(repo),
+    projectId: repo.projectId,
+    organizationId: repo.organizationId,
+    githubRepoId: repo.githubRepoId,
+    description: repo.description,
+    connectedAt: repo.connectedAt.toISOString(),
+    installationId: repo.installationId,
+    githubInstallationId: repo.installation.githubInstallationId,
+    installationStatus: repo.installation.status,
+    accountLogin: repo.installation.accountLogin,
+    accountType: repo.installation.accountType,
+    canManage,
+  };
+}
+
+export function toPullRequestSummaryDto(pr: {
+  id: string;
+  projectRepositoryId: string;
+  githubPrId: string;
+  number: number;
+  title: string;
+  state: PullRequestState;
+  isDraft: boolean;
+  authorLogin: string;
+  authorAvatarUrl: string | null;
+  headRef: string;
+  baseRef: string;
+  headSha: string;
+  mergeableState: string | null;
+  githubReviewDecision: string | null;
+  additions: number;
+  deletions: number;
+  changedFilesCount: number;
+  htmlUrl: string;
+  githubCreatedAt: Date;
+  githubUpdatedAt: Date;
+  mergedAt: Date | null;
+  closedAt: Date | null;
+  lastSyncedAt: Date;
+  _count?: { reviewComments: number; taskLinks: number };
+}): PullRequestSummaryDto {
+  return {
+    id: pr.id,
+    projectRepositoryId: pr.projectRepositoryId,
+    githubPrId: pr.githubPrId,
+    number: pr.number,
+    title: pr.title,
+    state: pr.state,
+    isDraft: pr.isDraft,
+    authorLogin: pr.authorLogin,
+    authorAvatarUrl: pr.authorAvatarUrl,
+    headRef: pr.headRef,
+    baseRef: pr.baseRef,
+    headSha: pr.headSha,
+    mergeableState: pr.mergeableState,
+    githubReviewDecision: pr.githubReviewDecision,
+    additions: pr.additions,
+    deletions: pr.deletions,
+    changedFilesCount: pr.changedFilesCount,
+    internalCommentCount: pr._count?.reviewComments ?? 0,
+    linkedTaskCount: pr._count?.taskLinks ?? 0,
+    htmlUrl: pr.htmlUrl,
+    githubCreatedAt: pr.githubCreatedAt.toISOString(),
+    githubUpdatedAt: pr.githubUpdatedAt.toISOString(),
+    mergedAt: pr.mergedAt ? pr.mergedAt.toISOString() : null,
+    closedAt: pr.closedAt ? pr.closedAt.toISOString() : null,
+    lastSyncedAt: pr.lastSyncedAt.toISOString(),
+  };
+}
+
+export function toPullRequestReviewCommentDto(
+  comment: {
+    id: string;
+    pullRequestId: string;
+    authorId: string | null;
+    body: string;
+    filePath: string | null;
+    lineNumber: number | null;
+    lineSide: DiffLineSide | null;
+    commitSha: string;
+    status: ReviewThreadStatus;
+    resolvedAt: Date | null;
+    editedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    author: TaskUserRef | null;
+    resolvedBy: TaskUserRef | null;
+  },
+  currentHeadSha: string,
+  actorUserId: string,
+  canManageProject: boolean,
+): PullRequestReviewCommentDto {
+  const isAuthor = comment.authorId === actorUserId;
+  return {
+    id: comment.id,
+    pullRequestId: comment.pullRequestId,
+    authorId: comment.authorId,
+    author: comment.author,
+    body: comment.body,
+    filePath: comment.filePath,
+    lineNumber: comment.lineNumber,
+    lineSide: comment.lineSide,
+    commitSha: comment.commitSha,
+    isOutdated: Boolean(currentHeadSha && comment.commitSha !== currentHeadSha),
+    status: comment.status,
+    resolvedBy: comment.resolvedBy,
+    resolvedAt: comment.resolvedAt ? comment.resolvedAt.toISOString() : null,
+    editedAt: comment.editedAt ? comment.editedAt.toISOString() : null,
+    createdAt: comment.createdAt.toISOString(),
+    updatedAt: comment.updatedAt.toISOString(),
+    canEdit: isAuthor,
+    canDelete: isAuthor || canManageProject,
+    canResolve: true,
+  };
+}
+
+export function toPullRequestInternalReviewDto(
+  review: {
+    id: string;
+    pullRequestId: string;
+    reviewerId: string;
+    decision: InternalReviewDecision;
+    summary: string | null;
+    commitSha: string;
+    updatedAt: Date;
+    reviewer: TaskUserRef | null;
+  },
+  currentHeadSha: string,
+): PullRequestInternalReviewDto {
+  return {
+    id: review.id,
+    pullRequestId: review.pullRequestId,
+    reviewerId: review.reviewerId,
+    reviewer: review.reviewer,
+    decision: review.decision,
+    summary: review.summary,
+    commitSha: review.commitSha,
+    isOutdated: Boolean(currentHeadSha && review.commitSha !== currentHeadSha),
+    updatedAt: review.updatedAt.toISOString(),
+  };
+}
+
+export function toLinkedPullRequestRefDto(link: {
+  id: string;
+  pullRequest: {
+    id: string;
+    number: number;
+    title: string;
+    state: PullRequestState;
+    isDraft: boolean;
+    headRef: string;
+    baseRef: string;
+    htmlUrl: string;
+    authorLogin: string;
+    githubUpdatedAt: Date;
+    projectRepository: { fullName: string };
+  };
+}): LinkedPullRequestRefDto {
+  return {
+    linkId: link.id,
+    pullRequestId: link.pullRequest.id,
+    number: link.pullRequest.number,
+    title: link.pullRequest.title,
+    state: link.pullRequest.state,
+    isDraft: link.pullRequest.isDraft,
+    headRef: link.pullRequest.headRef,
+    baseRef: link.pullRequest.baseRef,
+    htmlUrl: link.pullRequest.htmlUrl,
+    authorLogin: link.pullRequest.authorLogin,
+    repositoryFullName: link.pullRequest.projectRepository.fullName,
+    githubUpdatedAt: link.pullRequest.githubUpdatedAt.toISOString(),
+  };
+}
+
+export function toPullRequestLinkedTaskDto(link: {
+  id: string;
+  task: {
+    id: string;
+    identifier: string;
+    title: string;
+    status: TaskStatus;
+    priority: TaskPriority;
+    assignee: TaskUserRef | null;
+  };
+}): PullRequestLinkedTaskDto {
+  return {
+    linkId: link.id,
+    taskId: link.task.id,
+    identifier: link.task.identifier,
+    title: link.task.title,
+    status: link.task.status,
+    priority: link.task.priority,
+    assignee: link.task.assignee,
   };
 }

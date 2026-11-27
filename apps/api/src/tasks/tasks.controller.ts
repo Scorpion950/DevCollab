@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Header,
+  Optional,
   Param,
   Patch,
   Post,
@@ -18,14 +19,19 @@ import {
 } from "../authorization/authorization.constants";
 import { OrgAccessGuard } from "../authorization/org-access.guard";
 import { ProjectAccessGuard } from "../authorization/project-access.guard";
+import { requireRequiredId } from "../common/validation";
 import { WriteRateLimitGuard } from "../common/write-rate-limit.guard";
+import { GitHubService } from "../github/github.service";
 import { InternalIdentityGuard, type IdentityRequest } from "../users/identity.guard";
 import { TasksService } from "./tasks.service";
 
 @Controller("organizations/:orgId/projects/:projectId/tasks")
 @UseGuards(InternalIdentityGuard, OrgAccessGuard, ProjectAccessGuard)
 export class ProjectTasksController {
-  constructor(private readonly tasks: TasksService) {}
+  constructor(
+    private readonly tasks: TasksService,
+    @Optional() private readonly github?: GitHubService,
+  ) {}
 
   @Get()
   @RequireProjectAccess("view")
@@ -268,6 +274,41 @@ export class ProjectTasksController {
     @Param("taskId") taskId: string,
   ) {
     return this.tasks.listActivity(orgId, projectId, taskId);
+  }
+
+  @Post(":taskId/pull-requests")
+  @RequireProjectAccess("view")
+  @UseGuards(WriteRateLimitGuard)
+  async linkPullRequest(
+    @Req() request: ScopedRequest,
+    @Param("orgId") orgId: string,
+    @Param("projectId") projectId: string,
+    @Param("taskId") taskId: string,
+    @Body() body: { pullRequestId?: unknown },
+  ) {
+    if (!request.userId || !this.github) throw new UnauthorizedException();
+    const pullRequestId = requireRequiredId(body?.pullRequestId, "Pull request ID");
+    return this.github.linkTaskAndPullRequest(request.userId, orgId, projectId, {
+      taskId,
+      pullRequestId,
+    });
+  }
+
+  @Delete(":taskId/pull-requests/:pullRequestId")
+  @RequireProjectAccess("view")
+  @UseGuards(WriteRateLimitGuard)
+  async unlinkPullRequest(
+    @Req() request: ScopedRequest,
+    @Param("orgId") orgId: string,
+    @Param("projectId") projectId: string,
+    @Param("taskId") taskId: string,
+    @Param("pullRequestId") pullRequestId: string,
+  ) {
+    if (!request.userId || !this.github) throw new UnauthorizedException();
+    return this.github.unlinkTaskAndPullRequest(request.userId, orgId, projectId, {
+      taskId,
+      pullRequestId,
+    });
   }
 }
 

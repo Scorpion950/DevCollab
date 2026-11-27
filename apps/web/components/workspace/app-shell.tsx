@@ -59,6 +59,16 @@ function buildBreadcrumbs(pathname: string, orgName: string | null) {
       parts.push({ label: "Project", href: projectBase });
       parts.push({ label: "Tasks", href: `${projectBase}/tasks` });
       parts.push({ label: "Task detail" });
+    } else if (rest === "/repository") {
+      parts.push({ label: "Project", href: projectBase });
+      parts.push({ label: "Repository" });
+    } else if (rest === "/pull-requests") {
+      parts.push({ label: "Project", href: projectBase });
+      parts.push({ label: "Pull Requests" });
+    } else if (rest.startsWith("/pull-requests/")) {
+      parts.push({ label: "Project", href: projectBase });
+      parts.push({ label: "Pull Requests", href: `${projectBase}/pull-requests` });
+      parts.push({ label: "PR review" });
     } else {
       parts.push({ label: "Project detail" });
     }

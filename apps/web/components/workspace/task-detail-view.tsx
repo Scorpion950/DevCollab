@@ -9,15 +9,20 @@ import {
   CircleAlert,
   Copy,
   ExternalLink,
+  GitPullRequest,
   History,
+  Link2,
   MessageSquare,
   Pencil,
   Send,
   Trash2,
+  Unlink,
   X,
 } from "lucide-react";
 import type {
   OrganizationMemberDto,
+  PullRequestSummaryDto,
+  PullRequestsListResponseDto,
   TaskCommentDto,
   TaskDetailDto,
   TaskPriority,
@@ -25,6 +30,7 @@ import type {
 } from "@devcollab/shared";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "./confirm-dialog";
+import { PullRequestStateBadge } from "./github-badges";
 import {
   formatDateTime,
   formatShortDate,
@@ -71,6 +77,11 @@ export function TaskDetailView({
   const [savingField, setSavingField] = useState(false);
   const [commentBusy, setCommentBusy] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [linkPickerOpen, setLinkPickerOpen] = useState(false);
+  const [availablePrs, setAvailablePrs] = useState<PullRequestSummaryDto[]>([]);
+  const [loadingPrs, setLoadingPrs] = useState(false);
+  const [selectedPrId, setSelectedPrId] = useState("");
+  const [prLinkBusy, setPrLinkBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -288,6 +299,91 @@ export function TaskDetailView({
     }
   }
 
+  async function reloadFullTask() {
+    const res = await fetch(
+      `/api/workspace/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(task.id)}`,
+      { cache: "no-store" },
+    );
+    const data = await res.json().catch(() => null);
+    if (res.ok && data) {
+      const updated = data as TaskDetailDto;
+      setTask(updated);
+      onTaskUpdated?.(updated);
+    }
+  }
+
+  async function openPrLinkPicker() {
+    setLinkPickerOpen(true);
+    setLoadingPrs(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/workspace/projects/${encodeURIComponent(projectId)}/github/pull-requests?state=ALL&limit=30`,
+        { cache: "no-store" },
+      );
+      const data = (await res.json().catch(() => null)) as PullRequestsListResponseDto | null;
+      if (res.ok && data) {
+        setAvailablePrs(data.items ?? []);
+      }
+    } catch {
+      setError("Could not load pull requests for this project.");
+    } finally {
+      setLoadingPrs(false);
+    }
+  }
+
+  async function handleLinkPullRequest(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedPrId) return;
+    setPrLinkBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/workspace/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(task.id)}/pull-requests`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pullRequestId: selectedPrId }),
+        },
+      );
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.message || "Could not link pull request.");
+        return;
+      }
+      setSelectedPrId("");
+      setLinkPickerOpen(false);
+      await reloadFullTask();
+      setNotice("Pull request linked to task.");
+    } catch {
+      setError("Network error while linking pull request.");
+    } finally {
+      setPrLinkBusy(false);
+    }
+  }
+
+  async function handleUnlinkPullRequest(pullRequestId: string) {
+    setPrLinkBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/workspace/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(task.id)}/pull-requests/${encodeURIComponent(pullRequestId)}`,
+        { method: "DELETE" },
+      );
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.message || "Could not unlink pull request.");
+        return;
+      }
+      await reloadFullTask();
+      setNotice("Pull request unlinked.");
+    } catch {
+      setError("Network error while unlinking pull request.");
+    } finally {
+      setPrLinkBusy(false);
+    }
+  }
+
   async function copyDirectLink() {
     const url = `${window.location.origin}/app/projects/${projectId}/tasks/${task.id}`;
     try {
@@ -485,6 +581,129 @@ export function TaskDetailView({
                 <p className="field-hint">No description added yet.</p>
               )}
             </div>
+          </section>
+
+          <section className="app-card" aria-labelledby="task-prs-heading">
+            <div className="app-card-header">
+              <h2 id="task-prs-heading" className="inline-actions">
+                <GitPullRequest size={17} /> Linked Pull Requests (
+                {(task.linkedPullRequests ?? []).length})
+              </h2>
+              {task.canEditTask && !linkPickerOpen && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="compact"
+                  onClick={() => void openPrLinkPicker()}
+                >
+                  <Link2 size={13} /> Link PR
+                </Button>
+              )}
+            </div>
+
+            {linkPickerOpen && task.canEditTask && (
+              <form
+                onSubmit={handleLinkPullRequest}
+                className="form-stack"
+                style={{
+                  marginBottom: "1rem",
+                  padding: ".75rem",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius)",
+                  background: "var(--well)",
+                }}
+              >
+                <label className="field-group">
+                  Select a pull request from this project&apos;s connected repository
+                  <select
+                    className="field-select"
+                    disabled={loadingPrs || prLinkBusy}
+                    value={selectedPrId}
+                    onChange={(e) => setSelectedPrId(e.target.value)}
+                  >
+                    <option value="">
+                      {loadingPrs
+                        ? "Loading pull requests…"
+                        : availablePrs.length === 0
+                          ? "No synced pull requests available"
+                          : "Choose pull request…"}
+                    </option>
+                    {availablePrs
+                      .filter(
+                        (pr) =>
+                          !(task.linkedPullRequests ?? []).some((l) => l.pullRequestId === pr.id),
+                      )
+                      .map((pr) => (
+                        <option key={pr.id} value={pr.id}>
+                          #{pr.number} · {pr.title} ({pr.state})
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <div className="inline-actions">
+                  <Button
+                    type="submit"
+                    size="compact"
+                    disabled={prLinkBusy || loadingPrs || !selectedPrId}
+                  >
+                    {prLinkBusy ? "Linking…" : "Confirm link"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="compact"
+                    onClick={() => setLinkPickerOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {(task.linkedPullRequests ?? []).length === 0 ? (
+              <p className="field-hint">
+                No GitHub pull requests linked to this task yet.
+              </p>
+            ) : (
+              <div className="form-stack" style={{ gap: ".55rem" }}>
+                {(task.linkedPullRequests ?? []).map((pr) => (
+                  <div key={pr.linkId} className="overview-task-row">
+                    <Link
+                      href={`/app/projects/${projectId}/pull-requests/${pr.number}`}
+                      className="task-link-row"
+                      style={{ flex: 1 }}
+                    >
+                      <span className="project-key">#{pr.number}</span>
+                      <strong className="truncate-text">{pr.title}</strong>
+                    </Link>
+                    <div className="inline-actions" style={{ gap: ".4rem" }}>
+                      <PullRequestStateBadge state={pr.state} isDraft={pr.isDraft} />
+                      <a
+                        href={pr.htmlUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="icon-action-btn"
+                        aria-label={`Open PR #${pr.number} on GitHub`}
+                        title="Open on GitHub"
+                      >
+                        <ExternalLink size={12} />
+                      </a>
+                      {task.canEditTask && (
+                        <button
+                          type="button"
+                          className="icon-action-btn icon-action-danger"
+                          aria-label={`Unlink PR #${pr.number}`}
+                          disabled={prLinkBusy}
+                          onClick={() => void handleUnlinkPullRequest(pr.pullRequestId)}
+                        >
+                          <Unlink size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="app-card" aria-labelledby="task-comments-heading">
