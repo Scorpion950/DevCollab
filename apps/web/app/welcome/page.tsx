@@ -6,5 +6,5 @@ export const dynamic = "force-dynamic";
 export default async function Welcome() {
   const profile = await currentProfile();
   if (!profile) return <ProfileUnavailable/>;
-  return <WelcomeTransition firstName={profile.name.trim().split(/\s+/)[0] || "builder"} loginId={profile.loginId}/>;
+  return <WelcomeTransition firstName={profile.name.trim().split(/\s+/)[0] || "builder"} loginId={profile.session.loginId}/>;
 }

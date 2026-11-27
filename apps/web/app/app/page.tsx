@@ -12,7 +12,7 @@ export default async function Workspace() {
   const profile = await currentProfile();
   if (!profile) return <ProfileUnavailable/>;
   const theme = (await cookies()).get("devcollab.workspace.theme")?.value === "light" ? "light" : "dark";
-  return <WorkspaceSession><WorkspaceThemeProvider initialTheme={theme}><div className="workspace-entry">
+  return <WorkspaceSession session={profile.session}><WorkspaceThemeProvider initialTheme={theme}><div className="workspace-entry">
     <header className="frame"><Wordmark/><AccountMenu name={profile.name || profile.email} email={profile.email} image={profile.image}/></header>
     <main className="frame"><p className="eyebrow">DevCollab workspace</p><h1>Your workspace starts here.</h1>
     <section className="workspace-empty"><Folder size={30}/><h2>Organization setup</h2><p>Your DevCollab account is ready. Organization and project setup will be available in the next development milestone.</p></section></main>

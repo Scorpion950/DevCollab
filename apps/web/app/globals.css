@@ -1,21 +1,5 @@
 @import "tailwindcss";
 
-@font-face {
-  font-family: "Space Grotesk";
-  src: url("@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2") format("woff2");
-  font-style: normal; font-weight: 300 700; font-display: swap;
-}
-@font-face {
-  font-family: "DM Sans";
-  src: url("@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2") format("woff2");
-  font-style: normal; font-weight: 100 1000; font-display: swap;
-}
-@font-face {
-  font-family: "IBM Plex Mono";
-  src: url("@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
-  font-style: normal; font-weight: 400; font-display: swap;
-}
-
 :root {
   --carbon: #111613; --chalk: #f2f0e8; --citron: #d7f078; --clay: #e58b65;
   --sage: #81948a; --graphite: #232b25;
@@ -23,8 +7,8 @@
   --surface: #e7e9de; --well: #e9eae2; --muted-foreground: #47564c;
   --primary: var(--citron); --primary-foreground: var(--carbon); --accent-ink: #496215;
   --warm-ink: #954829; --border: #c5cbbf; --strong-border: #949f93; --ring: #617b29;
-  --heading-font: "Space Grotesk", Arial, sans-serif;
-  --ui-font: "DM Sans", Arial, sans-serif;
+  --heading-font: "Space Grotesk Variable", Arial, sans-serif;
+  --ui-font: "DM Sans Variable", Arial, sans-serif;
   --mono-font: "IBM Plex Mono", Consolas, monospace;
   --radius: .55rem; --radius-field: .7rem; --radius-card: .75rem; --radius-panel: 1rem; --radius-badge: .4rem;
   --space-1: .25rem; --space-2: .5rem; --space-3: .75rem; --space-4: 1rem; --space-6: 1.5rem; --space-8: 2rem; --error: #ffb59f; --success: var(--citron); --warning: var(--clay);

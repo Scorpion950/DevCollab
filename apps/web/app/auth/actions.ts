@@ -8,24 +8,34 @@ import { normalizeEmail, validPassword } from "@/lib/auth-input";
 import { allowAttempt, hashPassword } from "@/lib/server/passwords";
 
 export type Feedback = { message: string; email: string; name: string };
-export async function submitAuth(signup: boolean, _previous: Feedback, data: FormData): Promise<Feedback> {
-  const email = normalizeEmail(data.get("email"));
+export async function registerAccount(_previous: Feedback, data: FormData) {
+  return submitAuth(true, data);
+}
+
+export async function loginWithPassword(_previous: Feedback, data: FormData) {
+  return submitAuth(false, data);
+}
+
+async function submitAuth(signup: boolean, data: FormData): Promise<Feedback> {
+  const input = data.get("email");
+  const email = normalizeEmail(input);
   const name = String(data.get("name") ?? "").trim().slice(0, 101);
   const password = data.get("password");
-  const fail = (message: string) => ({ message, email, name });
+  const fail = (message: string) => ({ message, email: typeof input === "string" ? input.slice(0, 254) : "", name });
   if (!authSettings().ready) return fail("Authentication configuration is incomplete.");
   if (!email) return fail("Enter a valid email address.");
   if (signup && (!name || name.length > 100)) return fail("Enter a name between 1 and 100 characters.");
   if (!validPassword(password)) return fail(signup ? "Use a password between 12 and 128 characters." : "Email or password is incorrect.");
   if (signup && password !== data.get("confirm")) return fail("Your passwords do not match.");
   let created = false;
+  let destination: string;
   try {
     if (signup) {
       if (!await allowAttempt("register", email)) return fail("Too many attempts. Try again in 10 minutes.");
       await getDatabase().user.create({ data: { email, name, passwordHash: await hashPassword(password) }, select: { id: true } });
       created = true;
     }
-    await signIn("credentials", { email, password, redirect: false, redirectTo: "/welcome" });
+    destination = await signIn("credentials", { email, password, redirect: false, redirectTo: "/welcome" });
   } catch (error) {
     if (created) return fail("Your account was created. Open Sign In to continue.");
     if (error instanceof CredentialsSignin) return fail(error.code === "try_later" ? "Too many attempts. Try again in 10 minutes." : "Email or password is incorrect.");
@@ -33,7 +43,7 @@ export async function submitAuth(signup: boolean, _previous: Feedback, data: For
       return fail("Unable to register this email. Try signing in with your original method.");
     return fail("Authentication is temporarily unavailable. Please try again.");
   }
-  redirect("/welcome");
+  redirect(destination);
 }
 export async function startOAuth(provider: "google" | "github") {
   if (!["google","github"].includes(provider) || !authSettings()[provider]) redirect("/auth/sign-in?error=Configuration");

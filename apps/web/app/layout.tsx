@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import "@fontsource-variable/space-grotesk";
+import "@fontsource-variable/dm-sans";
+import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

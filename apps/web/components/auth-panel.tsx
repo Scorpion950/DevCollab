@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Eye, EyeOff, CircleAlert } from "lucide-react";
 import { Button } from "./ui/button";
-import { startOAuth, submitAuth } from "@/app/auth/actions";
+import { loginWithPassword, registerAccount, startOAuth } from "@/app/auth/actions";
 
 function PasswordField({ confirm=false, signup }: { confirm?:boolean; signup:boolean }) {
   const [visible,setVisible]=useState(false);
@@ -27,7 +27,7 @@ function ProviderButton({ provider, enabled }: { provider:string; enabled:boolea
 export function AuthPanel({signup=false,settings,initialMessage=""}:{
   signup?:boolean; settings:{ready:boolean;google:boolean;github:boolean}; initialMessage?:string;
 }) {
-  const [state, action, pending] = useActionState(submitAuth.bind(null,signup),{message:"",email:"",name:""});
+  const [state, action, pending] = useActionState(signup ? registerAccount : loginWithPassword,{message:"",email:"",name:""});
   const message = state.message || initialMessage;
   return <section className="access-form" aria-labelledby="access-title">
     <h1 id="access-title">{signup?"Create an account.":"Welcome back."}</h1>

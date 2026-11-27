@@ -1,6 +1,7 @@
 "use client";
 
 import { SessionProvider, useSession } from "next-auth/react";
+import type { Session } from "next-auth";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -14,9 +15,9 @@ function SessionBoundary({ children }: { children: ReactNode }) {
   return <div aria-busy={status === "loading"}>{children}</div>;
 }
 
-export function WorkspaceSession({ children }: { children: ReactNode }) {
+export function WorkspaceSession({ session, children }: { session: Session; children: ReactNode }) {
   return (
-    <SessionProvider refetchInterval={300} refetchWhenOffline={false}>
+    <SessionProvider session={session} refetchInterval={300} refetchWhenOffline={false}>
       <SessionBoundary>{children}</SessionBoundary>
     </SessionProvider>
   );

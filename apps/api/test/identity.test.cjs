@@ -3,6 +3,34 @@ const assert = require("node:assert/strict");
 const { randomBytes } = require("node:crypto");
 const { SignJWT } = require("jose");
 const { InternalIdentityGuard } = require("../dist/users/identity.guard");
+const { ConfigModule } = require("@nestjs/config");
+const { validateEnvironment } = require("../dist/config/environment");
+const { mkdtempSync, writeFileSync, rmSync } = require("node:fs");
+const { tmpdir } = require("node:os");
+const { join } = require("node:path");
+
+test("Nest loads the profile guard and database settings from the API env file", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "devcollab-env-"));
+  const envFilePath = join(dir, ".env");
+  const settings = {
+    DATABASE_URL: "postgresql://localhost/auth_test",
+    INTERNAL_AUTH_SECRET: randomBytes(32).toString("hex"),
+  };
+  const previous = { ...process.env };
+  try {
+    writeFileSync(envFilePath, Object.entries(settings).map(([k, v]) => k + "=" + v).join("\n"));
+    for (const key of Object.keys(settings)) delete process.env[key];
+    await ConfigModule.forRoot({ envFilePath, validate: validateEnvironment });
+    for (const [key, value] of Object.entries(settings)) assert.ok(process.env[key] === value, key);
+  } finally {
+    for (const key of Object.keys(settings)) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+    rmSync(envFilePath, { force: true });
+    require("node:fs").rmdirSync(dir);
+  }
+});
 
 test("only a current service assertion supplies the request identity", async () => {
   const secret = randomBytes(32).toString("hex");

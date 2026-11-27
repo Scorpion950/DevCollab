@@ -33,6 +33,12 @@ pnpm dev
 
 Open the [homepage](http://localhost:3000), [registration](http://localhost:3000/auth/sign-up), or [sign-in](http://localhost:3000/auth/sign-in). Use `pnpm dev:web` and `pnpm dev:api` to run the processes individually. Root development commands prepare the generated database client before launching.
 
+On Windows, run `pnpm.cmd dev` with ports 3000 and 4000 free. This starts Next.js with Webpack and NestJS together. Signup and sign-in use the database from Next.js. Both the welcome screen and the workspace also need the NestJS profile endpoint. Check [API health](http://localhost:4000/api/health) and the [frontend connectivity diagnostic](http://localhost:3000/dev/health) when troubleshooting startup.
+
+Development uses Webpack. The reported `Map maximum size exceeded` in `AsyncHook.init` also occurred under Webpack when React retried a native form postback. The sign-in and signup forms now pass stable server actions to `useActionState` so React can match the posted form state. The production build still uses the default bundler.
+
+With both services running, use `node --test apps/web/test/dev-auth.test.mjs` to check frontend-to-API connectivity, anonymous route protection, and form submissions before hydration.
+
 ## Server-only configuration
 
 Use [.env.example](.env.example) for variable names. Restart the affected services after editing environment files.

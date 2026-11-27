@@ -1,5 +1,7 @@
 export interface AppConfiguration {
   http: { port: number; origins: string[] };
+  DATABASE_URL?: string;
+  INTERNAL_AUTH_SECRET?: string;
 }
 
 function readOrigin(value: string): string {
@@ -24,5 +26,10 @@ export function validateEnvironment(env: Record<string, unknown>): AppConfigurat
   const localOrigin = env.NODE_ENV === "production" ? "" : "http://localhost:3000";
   const setting = String(env.CORS_ORIGINS ?? localOrigin);
   const origins = setting.trim() ? setting.split(",").map(readOrigin) : [];
-  return { http: { port, origins } };
+  // ConfigModule copies only validated scalar values from .env into process.env.
+  return {
+    http: { port, origins },
+    DATABASE_URL: typeof env.DATABASE_URL === "string" ? env.DATABASE_URL : undefined,
+    INTERNAL_AUTH_SECRET: typeof env.INTERNAL_AUTH_SECRET === "string" ? env.INTERNAL_AUTH_SECRET : undefined,
+  };
 }
