@@ -1,6 +1,10 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "./generated/prisma/client.js";
 
+export * from "./generated/prisma/enums.js";
+export type { PrismaClient };
+export { Prisma } from "./generated/prisma/client.js";
+
 const cache = globalThis as typeof globalThis & { devCollabPrisma?: PrismaClient };
 let client: PrismaClient | undefined;
 

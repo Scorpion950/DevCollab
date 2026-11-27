@@ -1,6 +1,8 @@
 import { Blocks, Bot, ChartNoAxesColumnIncreasing, CirclePlay, Database, GitMerge, Layers3, ListTodo, Monitor, PackageCheck, Server, SquareCode, UsersRound } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
+import { getCachedSession } from "@/lib/server/session";
 import { WorkspaceIllustration } from "@/components/workspace-illustration";
 import { PlatformConsole } from "@/components/demos/platform-console";
 import { Button } from "@/components/ui/button";
@@ -26,7 +28,9 @@ const architecture = [
   { icon: Database, name: "Data layer", stack: "Prisma · Neon PostgreSQL" },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const session = await getCachedSession();
+  if (session?.user?.id) redirect("/app");
   return (
 
       <main id="main">

@@ -44,14 +44,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
       } })] : []),
     ],
     callbacks: {
-      jwt({ token, user }) {
-        if (user) token.loginId = randomUUID();
+      async jwt({ token, user }) {
+        if (user && user.id) {
+          const loginId = randomUUID();
+          token.loginId = loginId;
+          if (db) {
+            const now = new Date();
+            await db.session.deleteMany({ where: { userId: user.id, expires: { lt: now } } }).catch(() => {});
+            await db.session.create({
+              data: {
+                sessionToken: loginId,
+                userId: user.id,
+                expires: new Date(Date.now() + 8 * 60 * 60 * 1000),
+              },
+            });
+          }
+          return token;
+        }
+        if (db) {
+          const loginId = typeof token.loginId === "string" ? token.loginId : "";
+          if (!loginId || !token.sub) return null;
+          const active = await db.session.findUnique({
+            where: { sessionToken: loginId },
+            select: { userId: true, expires: true },
+          });
+          if (!active || active.expires <= new Date() || active.userId !== token.sub) {
+            return null;
+          }
+        }
         return token;
       },
       session({ session, token }) {
         session.user.id = token.sub!;
         session.loginId = String(token.loginId ?? "");
         return session;
+      },
+    },
+    events: {
+      async signOut(message) {
+        if (!db || !("token" in message) || !message.token) return;
+        const loginId = typeof message.token.loginId === "string" ? message.token.loginId : "";
+        if (loginId) {
+          await db.session.deleteMany({ where: { sessionToken: loginId } }).catch(() => {});
+        }
       },
     },
   };

@@ -24,16 +24,26 @@ function ProviderButton({ provider, enabled }: { provider:string; enabled:boolea
   </Button>;
 }
 
-export function AuthPanel({signup=false,settings,initialMessage=""}:{
-  signup?:boolean; settings:{ready:boolean;google:boolean;github:boolean}; initialMessage?:string;
+export function AuthPanel({
+  signup = false,
+  settings,
+  initialMessage = "",
+  callbackUrl = null,
+}: {
+  signup?: boolean;
+  settings: { ready: boolean; google: boolean; github: boolean };
+  initialMessage?: string;
+  callbackUrl?: string | null;
 }) {
   const [state, action, pending] = useActionState(signup ? registerAccount : loginWithPassword,{message:"",email:"",name:""});
   const message = state.message || initialMessage;
+  const switchHref = (signup ? "/auth/sign-in" : "/auth/sign-up") + (callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : "");
   return <section className="access-form" aria-labelledby="access-title">
     <h1 id="access-title">{signup?"Create an account.":"Welcome back."}</h1>
     <p className="access-lede">{signup?"Set up your DevCollab workspace identity.":"Sign in to your engineering workspace."}</p>
     {!settings.ready && <p className="access-notice">Account access is unavailable until the database and authentication secret are configured.</p>}
     <form action={action} aria-busy={pending}>
+      {callbackUrl && <input type="hidden" name="callbackUrl" value={callbackUrl} />}
       {signup&&<label className="access-field">Full name<input type="text" name="name" defaultValue={state.name} required maxLength={100} autoComplete="name"/></label>}
       <label className="access-field">Email address<input type="email" name="email" defaultValue={state.email} required maxLength={254} autoComplete="email" placeholder="you@example.com"/></label>
       <PasswordField signup={signup}/>
@@ -42,7 +52,8 @@ export function AuthPanel({signup=false,settings,initialMessage=""}:{
       <Button disabled={!settings.ready || pending}>{pending?(signup?"Creating account…":"Signing in…"):(signup?"Create Account":"Sign In")}</Button>
     </form><div className="access-divider">or</div>
     <div className="access-providers">{(["google","github"] as const).map(provider=><form key={provider} action={startOAuth.bind(null,provider)}>
+      {callbackUrl && <input type="hidden" name="callbackUrl" value={callbackUrl} />}
       <ProviderButton provider={provider==="google"?"Google":"GitHub"} enabled={settings[provider]}/></form>)}</div>
-    <p className="access-switch">{signup?"Already have an account?":"Don't have an account?"} <Link href={signup?"/auth/sign-in":"/auth/sign-up"}>{signup?"Sign In":"Sign Up"}</Link></p>
+    <p className="access-switch">{signup?"Already have an account?":"Don't have an account?"} <Link href={switchHref}>{signup?"Sign In":"Sign Up"}</Link></p>
   </section>;
 }

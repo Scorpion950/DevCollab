@@ -8,16 +8,23 @@ datasource db {
   provider = "postgresql"
 }
 model User {
-  id String @id @default(cuid())
-  name String?
-  email String @unique
-  emailVerified DateTime?
-  image String?
-  passwordHash String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  accounts Account[]
-  sessions Session[]
+  id                   String                   @id @default(cuid())
+  name                 String?
+  email                String                   @unique
+  emailVerified        DateTime?
+  image                String?
+  passwordHash         String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  accounts             Account[]
+  sessions             Session[]
+  memberships          OrganizationMembership[]
+  sentInvitations      OrganizationInvitation[] @relation("InvitationSender")
+  acceptedInvitations  OrganizationInvitation[] @relation("InvitationAcceptor")
+  createdProjects      Project[]                @relation("ProjectCreator")
+  projectRoles         ProjectRoleAssignment[]  @relation("ProjectAssignee")
+  assignedProjectRoles ProjectRoleAssignment[]  @relation("ProjectAssigner")
+  auditLogs            OrganizationAuditLog[]
 }
 model Account {
   userId String
@@ -53,4 +60,140 @@ model AuthAttempt {
   count Int
   expires DateTime
   @@index([expires])
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProjectRole {
+  PROJECT_MANAGER
+  DEVELOPER
+}
+
+model Organization {
+  id          String                   @id @default(cuid())
+  name        String
+  slug        String                   @unique
+  description String?                  @db.Text
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  memberships OrganizationMembership[]
+  invitations OrganizationInvitation[]
+  projects    Project[]
+  auditLogs   OrganizationAuditLog[]
+}
+
+model OrganizationMembership {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrganizationRole @default(MEMBER)
+  status         MembershipStatus @default(ACTIVE)
+  joinedAt       DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId, role])
+}
+
+model OrganizationInvitation {
+  id             String           @id @default(cuid())
+  organizationId String
+  email          String
+  role           OrganizationRole @default(MEMBER)
+  tokenHash      String           @unique
+  status         InvitationStatus @default(PENDING)
+  activeLock     String?
+  invitedById    String?
+  acceptedById   String?
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User?            @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedBy     User?            @relation("InvitationAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email, activeLock])
+  @@index([organizationId, status])
+  @@index([email, status])
+}
+
+model Project {
+  id              String                  @id @default(cuid())
+  organizationId  String
+  name            String
+  key             String
+  slug            String
+  description     String?                 @db.Text
+  status          ProjectStatus           @default(ACTIVE)
+  createdById     String?
+  archivedAt      DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy       User?                   @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  roleAssignments ProjectRoleAssignment[]
+  auditLogs       OrganizationAuditLog[]
+
+  @@unique([organizationId, key])
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+}
+
+model ProjectRoleAssignment {
+  id           String      @id @default(cuid())
+  projectId    String
+  userId       String
+  role         ProjectRole @default(DEVELOPER)
+  assignedById String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user         User        @relation("ProjectAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy   User?       @relation("ProjectAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId, role])
+}
+
+model OrganizationAuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  projectId      String?
+  actorId        String?
+  action         String
+  summary        String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([projectId, createdAt])
 }

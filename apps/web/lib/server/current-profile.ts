@@ -1,12 +1,12 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { SignJWT } from "jose";
-import { auth } from "@/auth";
 import { authSettings } from "./auth-settings";
+import { getCachedSession } from "./session";
 
 export async function currentProfile() {
   if (!authSettings().ready) redirect("/auth/sign-in");
-  const session = await auth();
+  const session = await getCachedSession();
   if (!session?.user?.id) redirect("/auth/sign-in");
   const secret = process.env.INTERNAL_AUTH_SECRET;
   if (!secret || secret.length < 32 || !process.env.API_BASE_URL) return null;

@@ -7,6 +7,6 @@ export function BrandMark({ className = "" }: { className?: string }) {
   );
 }
 
-export function Wordmark({ onNavigate }: { onNavigate?: () => void }) {
-  return <Link onClick={onNavigate} href="/" aria-label="DevCollab home" className="wordmark"><BrandMark />DevCollab</Link>;
+export function Wordmark({ href = "/", onNavigate }: { href?: string; onNavigate?: () => void }) {
+  return <Link onClick={onNavigate} href={href} aria-label="DevCollab home" className="wordmark"><BrandMark />DevCollab</Link>;
 }

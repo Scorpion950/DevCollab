@@ -10,7 +10,15 @@ const sections = [
   { name: "Product", href: "/#product" }, { name: "Features", href: "/#features" }, { name: "Architecture", href: "/#architecture" },
 ];
 
-export function Navigation({ repository }: { repository?: string }) {
+export function Navigation({
+  repository,
+  homeHref = "/",
+  authenticated = false,
+}: {
+  repository?: string;
+  homeHref?: string;
+  authenticated?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
   const links = repository ? [...sections, { name: "GitHub", href: repository }] : sections;
@@ -27,10 +35,14 @@ export function Navigation({ repository }: { repository?: string }) {
       }
     }}>
       <div className="frame nav-inner">
-        <Wordmark onNavigate={() => setOpen(false)} />
+        <Wordmark href={homeHref} onNavigate={() => setOpen(false)} />
         <nav aria-label="Main navigation" className="desktop-nav">{navLinks}</nav>
         <div className="nav-actions">
-          <Button size="compact" asChild><Link href="/auth/sign-in" onClick={() => setOpen(false)}>Get Started</Link></Button>
+          <Button size="compact" asChild>
+            <Link href={authenticated ? "/app" : "/auth/sign-in"} onClick={() => setOpen(false)}>
+              {authenticated ? "Open Workspace" : "Get Started"}
+            </Link>
+          </Button>
           <button className="menu-toggle" type="button" ref={toggle} aria-expanded={open} aria-controls="mobile-menu" aria-label={open ? "Close navigation" : "Open navigation"} onClick={() => setOpen(!open)}>
             {open ? <X /> : <Menu />}
           </button>
