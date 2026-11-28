@@ -4,9 +4,9 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "dev": "tsc && node --env-file-if-exists=.env --env-file-if-exists=../api/.env dist/main.js",
+    "dev": "tsc && node --env-file-if-exists=../api/.env --env-file-if-exists=.env dist/main.js",
     "build": "tsc",
-    "start": "node --env-file-if-exists=.env --env-file-if-exists=../api/.env dist/main.js",
+    "start": "node --env-file-if-exists=../api/.env --env-file-if-exists=.env dist/main.js",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test": "tsc && node --test test/worker-sandbox.test.cjs test/workspace-runtime.test.cjs test/collab-gateway.test.cjs"

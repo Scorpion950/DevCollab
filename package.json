@@ -20,7 +20,8 @@
     "db:validate": "pnpm --filter @devcollab/database validate",
     "db:migrate": "pnpm --filter @devcollab/database migrate:dev",
     "db:deploy": "pnpm --filter @devcollab/database migrate:deploy",
-    "db:check": "pnpm --filter @devcollab/database check"
+    "db:check": "pnpm --filter @devcollab/database check",
+    "env:check": "node scripts/env-check.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -51,13 +51,15 @@ Engineering work often splits across separate tools for access control, task tra
 | `packages/database` | Prisma schema, PostgreSQL driver adapter, Neon configuration, and additive migrations |
 | `packages/shared` | Shared TypeScript DTO contracts across web, API, and worker |
 
-## Environment variables
+## Environment setup & configuration
 
-See [`.env.example`](.env.example) for exact placement. Do not commit secrets.
+Each package loads its own environment file (`apps/web/.env.local`, `apps/api/.env`, `apps/worker/.env`, `packages/database/.env`) using per-package `.env.example` templates; [`.env.example`](.env.example) provides the full monorepo overview.
 
-- **Database (`packages/database/.env`):** `DIRECT_URL`, `DATABASE_URL`
-- **Web (`apps/web/.env.local`):** `DATABASE_URL`, `AUTH_URL`, `AUTH_SECRET`, `INTERNAL_AUTH_SECRET`, `API_BASE_URL`, optional `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`
-- **API & Worker (`apps/api/.env`, optional `apps/worker/.env`):** `DATABASE_URL`, `INTERNAL_AUTH_SECRET`, `PORT` (default `4000`), `CORS_ORIGINS`, GitHub App credentials (`GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET`, optional `GITHUB_API_BASE_URL`), AI agent & sandbox settings (`AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`, optional `AI_API_BASE_URL`, `AI_TIMEOUT_MS`, `AI_PRICE_INPUT_PER_1M`, `AI_PRICE_OUTPUT_PER_1M`, `SANDBOX_ENABLED`, `SANDBOX_DOCKER_IMAGE`, `WORKER_POLL_INTERVAL_MS`), and Browser IDE worker settings (`WORKER_URL`, `WORKER_PORT`, `WORKER_BIND_HOST`, `WORKER_TERMINAL_PUBLIC_URL`, `WORKSPACE_STORAGE_MODE`, `WORKSPACE_STORAGE_DIR`, `WORKSPACE_SNAPSHOT_DIR`, `WORKSPACE_TERMINAL_ENABLED`, `WORKSPACE_TTL_HOURS`)
+- **Database (`packages/database/.env`):** Requires Neon `DIRECT_URL` (for Prisma migrations) and pooled `DATABASE_URL` (shared with web, API, and worker).
+- **Web (`apps/web/.env.local`):** Requires `DATABASE_URL`, `AUTH_URL`, 32+ char `AUTH_SECRET`, 32+ char `INTERNAL_AUTH_SECRET`, and `API_BASE_URL`; optionally add `AUTH_GOOGLE_*` / `AUTH_GITHUB_*` for OAuth login and `GITHUB_REPOSITORY_URL`.
+- **API (`apps/api/.env`) & Worker (`apps/worker/.env`):** Require `DATABASE_URL` and the same `INTERNAL_AUTH_SECRET`, plus service URLs/ports (`PORT=4000`, `WORKER_PORT=4100`, `WORKER_URL`, `WORKER_TERMINAL_PUBLIC_URL`, `CORS_ORIGINS`). Local secrets (`AUTH_SECRET`, `INTERNAL_AUTH_SECRET`) can be generated via `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`; external credentials (Neon URLs, OAuth apps, GitHub App, AI API keys) are manual.
+- **Optional GitHub App, AI & Sandbox Isolation:** GitHub App (`GITHUB_APP_*`, `GITHUB_WEBHOOK_SECRET`) and AI (`AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`, optional `AI_API_BASE_URL` / `AI_PRICE_*`) are optional and degrade cleanly when empty. Keep `SANDBOX_ENABLED=false` and `WORKSPACE_TERMINAL_ENABLED=false` when Docker is unavailable — DevCollab never falls back to host shell execution. Real-time `/collab` WebSockets derive automatically from `WORKER_TERMINAL_PUBLIC_URL`.
+- **Validate without exposing secrets:** `pnpm env:check`
 
 ## GitHub App integration setup
 
@@ -75,6 +77,7 @@ Requires Node.js 24+ and pnpm 10.32+.
 ```sh
 corepack enable
 pnpm install --frozen-lockfile
+pnpm env:check
 pnpm db:validate
 pnpm db:check
 pnpm db:deploy

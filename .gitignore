@@ -1,15 +1,40 @@
+# Dependencies & package stores
 node_modules/
 .pnpm-store/
-.next/
-.vercel/
-dist/
-*.tsbuildinfo
+
+# Environment & local secrets (never commit real secrets or keys)
 .env
 .env.*
 !.env.example
-packages/database/src/generated/
-*.log
-.DS_Store
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.secret
+.credentials*
+
+# Framework builds, artifacts & caches
+.next/
+.vercel/
+.turbo/
+.cache/
+dist/
+*.tsbuildinfo
 next-env.d.ts
-.devcollab-workspaces/
+packages/database/src/generated/
 apps/web/public/monaco/
+
+# Test, coverage, logs & temporary local runtime state
+coverage/
+*.lcov
+test-results/
+playwright-report/
+*.log
+*.tgz
+tmp/
+temp/
+.DS_Store
+Thumbs.db
+.devcollab-workspaces/
