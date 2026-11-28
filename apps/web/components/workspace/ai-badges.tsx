@@ -114,9 +114,17 @@ export function AgentTestStatusBadge({ status }: { status: AgentTestRunStatus })
   );
 }
 
-export function formatUsd(cost: string | number): string {
+export function formatUsd(
+  cost: string | number | null | undefined,
+  options?: { costAvailable?: boolean; currency?: string },
+): string {
+  if (options?.costAvailable === false || cost === null || cost === undefined) {
+    return "Cost unavailable";
+  }
+  const currency = options?.currency && options.currency !== "USD" ? `${options.currency} ` : "$";
   const num = Number(cost);
-  if (!Number.isFinite(num) || num <= 0) return "$0.00";
-  if (num < 0.01) return `$${num.toFixed(4)}`;
-  return `$${num.toFixed(3)}`;
+  if (!Number.isFinite(num)) return "Cost unavailable";
+  if (num <= 0) return `${currency}0.00`;
+  if (num < 0.01) return `${currency}${num.toFixed(4)}`;
+  return `${currency}${num.toFixed(3)}`;
 }

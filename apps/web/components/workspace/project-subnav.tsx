@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, Code2, Columns3, FolderGit2, FolderKanban, GitPullRequest, List, ShieldCheck } from "lucide-react";
+import { BarChart3, Bot, Code2, Columns3, FolderGit2, FolderKanban, GitPullRequest, List, ShieldCheck } from "lucide-react";
 
 export function ProjectSubnav({
   projectId,
@@ -7,7 +7,7 @@ export function ProjectSubnav({
   canManageProject,
 }: {
   projectId: string;
-  active: "overview" | "board" | "list" | "repository" | "pull-requests" | "ai" | "ide" | "manage";
+  active: "overview" | "board" | "list" | "repository" | "pull-requests" | "ai" | "ide" | "analytics" | "manage";
   canManageProject: boolean;
 }) {
   const base = `/app/projects/${projectId}`;
@@ -61,6 +61,13 @@ export function ProjectSubnav({
         aria-current={active === "ide" ? "page" : undefined}
       >
         <Code2 size={15} /> IDE
+      </Link>
+      <Link
+        href={`${base}/analytics`}
+        className="project-subnav-link"
+        aria-current={active === "analytics" ? "page" : undefined}
+      >
+        <BarChart3 size={15} /> Analytics
       </Link>
       {canManageProject && (
         <Link

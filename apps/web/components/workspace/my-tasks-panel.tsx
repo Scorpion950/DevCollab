@@ -2,21 +2,26 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, CircleAlert, FolderGit2, ListTodo } from "lucide-react";
+import { BarChart3, CheckCircle2, CircleAlert, FolderGit2, ListTodo } from "lucide-react";
 import type { MyTasksResponseDto } from "@devcollab/shared";
 import { Button } from "@/components/ui/button";
+import { PersonalInsightsView } from "./analytics/personal-insights-view";
 import { DueDateChip, TaskPriorityBadge, TaskStatusBadge } from "./task-badges";
 
 type FilterMode = "active" | "dueSoon" | "overdue" | "completed" | "all";
 type ScopeMode = "org" | "all";
+type ViewMode = "tasks" | "insights";
 
 export function MyTasksPanel({
   orgName,
   initialData,
+  initialView = "tasks",
 }: {
   orgName: string | null;
   initialData: MyTasksResponseDto;
+  initialView?: ViewMode;
 }) {
+  const [view, setView] = useState<ViewMode>(initialView);
   const [data, setData] = useState<MyTasksResponseDto>(initialData);
   const [filter, setFilter] = useState<FilterMode>("active");
   const [scope, setScope] = useState<ScopeMode>(orgName ? "org" : "all");
@@ -65,6 +70,24 @@ export function MyTasksPanel({
           <p className="page-subtitle">
             Tasks assigned to you across projects you are authorized to access.
           </p>
+          <div className="inline-actions" role="tablist" aria-label="My Tasks view mode" style={{ marginTop: ".75rem" }}>
+            <Button
+              type="button"
+              size="compact"
+              variant={view === "tasks" ? "primary" : "secondary"}
+              onClick={() => setView("tasks")}
+            >
+              <ListTodo size={14} /> Assigned Tasks
+            </Button>
+            <Button
+              type="button"
+              size="compact"
+              variant={view === "insights" ? "primary" : "secondary"}
+              onClick={() => setView("insights")}
+            >
+              <BarChart3 size={14} /> Personal Insights
+            </Button>
+          </div>
         </div>
 
         {orgName && (
@@ -91,7 +114,11 @@ export function MyTasksPanel({
         )}
       </header>
 
-      <div className="inline-actions" role="tablist" aria-label="Task filter">
+      {view === "insights" ? (
+        <PersonalInsightsView />
+      ) : (
+        <>
+          <div className="inline-actions" role="tablist" aria-label="Task filter">
         {tabs.map((tab) => (
           <Button
             key={tab.key}
@@ -205,6 +232,8 @@ export function MyTasksPanel({
             ))}
           </div>
         </section>
+      )}
+        </>
       )}
     </>
   );

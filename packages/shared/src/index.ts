@@ -687,20 +687,27 @@ export interface AgentUsageRecordDto {
   stageRole: AgentStageRole;
   provider: string;
   model: string;
+  usageAvailable?: boolean;
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  costAvailable?: boolean;
+  currency?: string;
   estimatedCostUsd: string;
   latencyMs: number;
   createdAt: string;
 }
 
 export interface AgentUsageTotalsDto {
+  usageAvailable?: boolean;
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  costAvailable?: boolean;
   estimatedCostUsd: string;
   callCount: number;
+  unreportedUsageCallCount?: number;
+  unpricedCallCount?: number;
 }
 
 export interface AgentRunSummaryDto {
@@ -1170,8 +1177,11 @@ export interface AiAssistantStatusDto {
   model: string | null;
   canRunAi: boolean;
   reason: string;
+  usageAvailable?: boolean;
   totalInputTokens: number;
   totalOutputTokens: number;
+  costAvailable?: boolean;
+  currency?: string;
   estimatedCostUsd: string;
 }
 
@@ -1181,3 +1191,347 @@ export type AiAssistantStreamEventDto =
   | { type: "delta"; text: string }
   | { type: "done"; message: AiMessageDto }
   | { type: "error"; message: string; status?: "CANCELLED" | "FAILED" };
+
+export type AnalyticsRangePreset = "7d" | "30d" | "90d" | "custom";
+export type AnalyticsBucketGranularity = "day" | "week";
+export type AnalyticsComparisonState = "VALID" | "ZERO_BASELINE" | "UNAVAILABLE";
+export type AiUsageSourceKind =
+  | "AGENT_PLANNER"
+  | "AGENT_IMPLEMENTER"
+  | "AGENT_REVIEWER"
+  | "IDE_ASSISTANT";
+export type AiBudgetPeriod = "WEEKLY" | "MONTHLY";
+
+export interface AnalyticsDateFilterDto {
+  preset: AnalyticsRangePreset;
+  from: string;
+  to: string;
+  timezone: string;
+  granularity: AnalyticsBucketGranularity;
+  periodStartUtc: string;
+  periodEndUtc: string;
+  previousStartUtc: string;
+  previousEndUtc: string;
+}
+
+export interface AnalyticsComparisonDto {
+  current: number | null;
+  previous: number | null;
+  deltaPct: number | null;
+  state: AnalyticsComparisonState;
+}
+
+export interface TaskStatusDistributionItemDto {
+  status: TaskStatus;
+  label: string;
+  count: number;
+}
+
+export interface DeliveryTrendPointDto {
+  bucketKey: string;
+  label: string;
+  createdCount: number;
+  completedCount: number;
+}
+
+export interface TaskDeliveryAnalyticsDto {
+  totalNonArchivedTasks: number;
+  activeTasks: number;
+  completedTasks: number;
+  archivedTasks: number;
+  overdueTasks: number;
+  tasksInReview: number;
+  createdInPeriod: number;
+  completedInPeriod: number;
+  createdComparison: AnalyticsComparisonDto;
+  completedComparison: AnalyticsComparisonDto;
+  statusDistribution: TaskStatusDistributionItemDto[];
+  trends: DeliveryTrendPointDto[];
+  archiveRuleNote: string;
+}
+
+export interface TaskLifecycleAnalyticsDto {
+  throughputCount: number;
+  reopenedInPeriodCount: number;
+  averageCycleTimeHours: number | null;
+  medianCycleTimeHours: number | null;
+  cycleTimeSampleCount: number;
+  cycleTimeExcludedCount: number;
+  cycleTimeStatus: "AVAILABLE" | "INSUFFICIENT_DATA";
+  cycleTimeRuleNote: string;
+  averageLeadTimeHours: number | null;
+  medianLeadTimeHours: number | null;
+  leadTimeSampleCount: number;
+  leadTimeStatus: "AVAILABLE" | "INSUFFICIENT_DATA";
+}
+
+export interface TaskHealthItemDto {
+  id: string;
+  identifier: string;
+  title: string;
+  projectId: string;
+  projectKey: string;
+  status: TaskStatus;
+  dueDate: string | null;
+  updatedAt: string;
+}
+
+export interface TaskHealthInsightDto {
+  key: "OVERDUE" | "DUE_SOON" | "STALE_REVIEW" | "INACTIVE_ACTIVE" | "UNASSIGNED_ACTIVE";
+  label: string;
+  count: number;
+  summary: string;
+  tasks: TaskHealthItemDto[];
+}
+
+export interface GitHubAnalyticsDto {
+  state: "NOT_CONNECTED" | "NOT_YET_SYNCHRONIZED" | "STALE_SYNC" | "SYNC_ERROR" | "READY";
+  statusMessage: string;
+  connectedRepoCount: number;
+  repoFullName: string | null;
+  lastSyncedAt: string | null;
+  openPullRequests: number;
+  draftPullRequests: number;
+  mergedInPeriod: number;
+  closedInPeriod: number;
+  updatedRecentlyCount: number;
+  githubAwaitingReviewCount: number;
+  internallyApprovedCount: number;
+  averageMergeTimeHours: number | null;
+  mergeTimeSampleCount: number;
+  reviewBoundaryNote: string;
+}
+
+export interface AiExecutionTrendPointDto {
+  bucketKey: string;
+  label: string;
+  totalRuns: number;
+  completedRuns: number;
+  failedRuns: number;
+}
+
+export interface AiExecutionAnalyticsDto {
+  totalRuns: number;
+  completedRuns: number;
+  failedRuns: number;
+  cancelledRuns: number;
+  awaitingApprovalRuns: number;
+  awaitingReviewRuns: number;
+  runningOrQueuedRuns: number;
+  runSuccessRatePct: number | null;
+  runFailureRatePct: number | null;
+  averageCompletedDurationSeconds: number | null;
+  durationSampleCount: number;
+  plansGeneratedCount: number;
+  proposalsGeneratedCount: number;
+  proposalsAcceptedCount: number;
+  testsExecutedCount: number;
+  testsPassedCount: number;
+  testsUnavailableCount: number;
+  trends: AiExecutionTrendPointDto[];
+  accuracyNote: string;
+}
+
+export interface AiUsageTrendPointDto {
+  bucketKey: string;
+  label: string;
+  requestCount: number;
+  reportedTokens: number | null;
+  estimatedSpend: string | null;
+}
+
+export interface AiUsageGroupRowDto {
+  key: string;
+  label: string;
+  subLabel?: string | null;
+  requestCount: number;
+  reportedCallCount: number;
+  unreportedCallCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  costedCallCount: number;
+  uncostedCallCount: number;
+  currency: string;
+  estimatedSpend: string | null;
+  costStatus: "AVAILABLE" | "PARTIAL" | "PRICING_UNAVAILABLE";
+}
+
+export interface AiRecentActivityItemDto {
+  id: string;
+  sourceKind: AiUsageSourceKind;
+  operationLabel: string;
+  projectId: string;
+  projectKey: string;
+  projectName: string;
+  taskId: string | null;
+  taskIdentifier: string | null;
+  workspaceId: string | null;
+  actorName: string | null;
+  provider: string;
+  model: string;
+  usageAvailable: boolean;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  costAvailable: boolean;
+  currency: string;
+  estimatedCostUsd: string | null;
+  statusLabel: string;
+  latencyMs: number;
+  createdAt: string;
+}
+
+export interface AiCurrencySpendSummaryDto {
+  currency: string;
+  estimatedSpend: string | null;
+  costedCallCount: number;
+  uncostedCallCount: number;
+  status: "AVAILABLE" | "PARTIAL" | "PRICING_UNAVAILABLE";
+}
+
+export interface AiUsageAnalyticsDto {
+  totalRequests: number;
+  reportedCallCount: number;
+  unreportedCallCount: number;
+  tokenUsageStatus: "AVAILABLE" | "PARTIAL" | "UNAVAILABLE" | "NO_USAGE";
+  totalInputTokens: number | null;
+  totalOutputTokens: number | null;
+  totalTokens: number | null;
+  mostUsedModel: string | null;
+  spendByCurrency: AiCurrencySpendSummaryDto[];
+  mixedCurrencyDetected: boolean;
+  costStatus: "AVAILABLE" | "PARTIAL" | "PRICING_UNAVAILABLE" | "NO_USAGE";
+  costStatusMessage: string;
+  trends: AiUsageTrendPointDto[];
+  byModel: AiUsageGroupRowDto[];
+  byProject: AiUsageGroupRowDto[];
+  byOperation: AiUsageGroupRowDto[];
+  recentActivity: AiRecentActivityItemDto[];
+  activityTotalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AiModelPricingDto {
+  id: string;
+  organizationId: string;
+  provider: string;
+  model: string;
+  version: number;
+  currency: string;
+  inputRatePer1m: string;
+  outputRatePer1m: string;
+  cachedInputRatePer1m: string | null;
+  reasoningRatePer1m: string | null;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isActive: boolean;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface AiBudgetConfigDto {
+  id: string;
+  organizationId: string;
+  projectId: string | null;
+  projectName: string | null;
+  projectKey: string | null;
+  period: AiBudgetPeriod;
+  currency: string;
+  amountUsd: string;
+  warningThresholdPct: number;
+  hardEnforcementSupported: false;
+  updatedAt: string;
+}
+
+export interface AiBudgetStatusDto {
+  budget: AiBudgetConfigDto;
+  windowStartUtc: string;
+  windowEndUtc: string;
+  consumedAmount: string | null;
+  consumedPct: number | null;
+  costedCallCount: number;
+  uncostedCallCount: number;
+  unreportedUsageCallCount: number;
+  state: "OK" | "APPROACHING_BUDGET" | "BUDGET_EXCEEDED" | "PRICING_UNAVAILABLE" | "INCOMPLETE_DATA";
+  warnings: string[];
+}
+
+export interface AiBudgetAuditEventDto {
+  id: string;
+  projectId: string | null;
+  action: string;
+  actor: TaskUserRef | null;
+  previousValue: unknown;
+  newValue: unknown;
+  createdAt: string;
+}
+
+export interface OrganizationAnalyticsProjectRowDto {
+  projectId: string;
+  projectKey: string;
+  projectName: string;
+  status: ProjectStatus;
+  activeTasks: number;
+  completedInPeriod: number;
+  overdueTasks: number;
+  openPullRequests: number;
+  aiRequestCount: number;
+  estimatedSpendUsd: string | null;
+  costStatus: "AVAILABLE" | "PARTIAL" | "PRICING_UNAVAILABLE" | "NO_USAGE";
+}
+
+export interface OrganizationAnalyticsDto {
+  organizationId: string;
+  organizationName: string;
+  filter: AnalyticsDateFilterDto;
+  generatedAtUtc: string;
+  cachedHit: boolean;
+  delivery: TaskDeliveryAnalyticsDto;
+  github: GitHubAnalyticsDto;
+  aiExecution: AiExecutionAnalyticsDto;
+  aiUsage: AiUsageAnalyticsDto;
+  projectBreakdown: OrganizationAnalyticsProjectRowDto[];
+  budgets: AiBudgetStatusDto[];
+  budgetAuditEvents: AiBudgetAuditEventDto[];
+}
+
+export interface ProjectAnalyticsDto {
+  organizationId: string;
+  project: ProjectDetailDto;
+  canManageBudget: boolean;
+  canViewUsageCosts: boolean;
+  filter: AnalyticsDateFilterDto;
+  generatedAtUtc: string;
+  cachedHit: boolean;
+  delivery: TaskDeliveryAnalyticsDto;
+  lifecycle: TaskLifecycleAnalyticsDto;
+  healthInsights: TaskHealthInsightDto[];
+  github: GitHubAnalyticsDto;
+  aiExecution: AiExecutionAnalyticsDto;
+  aiUsage: AiUsageAnalyticsDto;
+  budgetStatus: AiBudgetStatusDto | null;
+}
+
+export interface PersonalInsightsDto {
+  userId: string;
+  organizationId: string;
+  organizationName: string;
+  filter: AnalyticsDateFilterDto;
+  generatedAtUtc: string;
+  assignedActiveCount: number;
+  completedInPeriodCount: number;
+  overdueAssignedCount: number;
+  dueSoonAssignedCount: number;
+  recentTasks: TaskHealthItemDto[];
+  recentActivities: Array<{
+    id: string;
+    taskId: string;
+    taskIdentifier: string;
+    projectKey: string;
+    summary: string;
+    createdAt: string;
+  }>;
+  aiUsage: AiUsageAnalyticsDto;
+}

@@ -7,8 +7,15 @@ import { getWorkspaceBootstrap } from "@/lib/server/dal";
 
 export const dynamic = "force-dynamic";
 
-export default async function MyTasksPage() {
-  const ctx = await getWorkspaceBootstrap();
+export default async function MyTasksPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ view?: string }>;
+}) {
+  const [ctx, resolvedParams] = await Promise.all([
+    getWorkspaceBootstrap(),
+    searchParams ?? Promise.resolve({} as { view?: string }),
+  ]);
   if (!ctx) return null;
 
   const { bootstrap } = ctx;
@@ -39,5 +46,11 @@ export default async function MyTasksPage() {
     );
   }
 
-  return <MyTasksPanel orgName={activeOrg.name} initialData={res.data} />;
+  return (
+    <MyTasksPanel
+      orgName={activeOrg.name}
+      initialData={res.data}
+      initialView={resolvedParams.view === "insights" ? "insights" : "tasks"}
+    />
+  );
 }

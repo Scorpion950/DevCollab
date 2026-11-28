@@ -434,8 +434,13 @@ export function IdeAiAssistantPanel({
             {status.provider} · {status.model}
           </span>
           <span className="field-hint">
-            {(status.totalInputTokens + status.totalOutputTokens).toLocaleString()} tok · $
-            {status.estimatedCostUsd}
+            {status.usageAvailable === false
+              ? "Usage unavailable"
+              : `${(status.totalInputTokens + status.totalOutputTokens).toLocaleString()} tok`}{" "}
+            ·{" "}
+            {status.costAvailable === false
+              ? "Cost unavailable"
+              : `${status.currency && status.currency !== "USD" ? `${status.currency} ` : "$"}${status.estimatedCostUsd}`}
           </span>
         </div>
       )}

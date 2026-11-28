@@ -6,6 +6,7 @@ import {
   AiProviderClient,
   GitHubSourceClient,
   applyValidatedPatchToDirectory,
+  computeUsageCostFromPricing,
   extractSafeTarGz,
   frameUntrustedRepoFiles,
   isSensitiveOrBlockedPath,
@@ -32,6 +33,7 @@ export interface ClaimedAgentRun {
   projectId: string;
   taskId: string;
   projectRepositoryId: string | null;
+  triggeredById?: string | null;
   status: string;
   requestedPhase: string;
   repoFullName: string;
@@ -126,6 +128,10 @@ export class AgentWorkerProcessor {
           projectId: candidate.projectId,
           taskId: candidate.taskId,
           projectRepositoryId: candidate.projectRepositoryId,
+          triggeredById:
+            "triggeredById" in candidate
+              ? ((candidate as { triggeredById?: string | null }).triggeredById ?? null)
+              : null,
           status: claimStatus,
           requestedPhase: candidate.requestedPhase,
           repoFullName: candidate.repoFullName,
@@ -385,7 +391,7 @@ export class AgentWorkerProcessor {
         },
       });
 
-      await this.recordUsageInTx(tx, claimed, usage);
+      await this.recordUsageInTx(tx, claimed, usage, `plan-v${nextVersion}`);
 
       await tx.agentRun.update({
         where: { id: claimed.id },
@@ -532,7 +538,12 @@ export class AgentWorkerProcessor {
       await applyValidatedPatchToDirectory(tempWorkDir, validated);
     } catch (patchErr) {
       await this.deps.prisma.$transaction(async (tx) => {
-        await this.recordUsageInTx(tx, claimed, implUsage);
+        await this.recordUsageInTx(
+          tx,
+          claimed,
+          implUsage,
+          `impl-v${(priorProposals[0]?.version ?? 0) + 1}`,
+        );
         await tx.agentRunEvent.create({
           data: {
             runId: claimed.id,
@@ -631,8 +642,8 @@ export class AgentWorkerProcessor {
         },
       });
 
-      await this.recordUsageInTx(tx, claimed, implUsage);
-      await this.recordUsageInTx(tx, claimed, reviewUsage);
+      await this.recordUsageInTx(tx, claimed, implUsage, `impl-v${nextVersion}`);
+      await this.recordUsageInTx(tx, claimed, reviewUsage, `review-v${nextVersion}`);
 
       await tx.agentRunEvent.create({
         data: {
@@ -695,24 +706,92 @@ export class AgentWorkerProcessor {
   }
 
   private async recordUsageInTx(
-    tx: Pick<PrismaClient, "agentUsageRecord">,
+    tx: Pick<PrismaClient, "agentUsageRecord"> &
+      Partial<Pick<PrismaClient, "aiModelPricing">>,
     claimed: ClaimedAgentRun,
     usage: AiStageUsage,
+    callKey = "stage",
   ): Promise<void> {
-    await tx.agentUsageRecord.create({
-      data: {
-        runId: claimed.id,
-        organizationId: claimed.organizationId,
-        projectId: claimed.projectId,
-        stageRole: usage.stageRole,
-        provider: usage.provider,
-        model: usage.model,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        totalTokens: usage.totalTokens,
-        estimatedCostUsd: usage.estimatedCostUsd,
-        latencyMs: usage.latencyMs,
-      },
+    const usageReported =
+      usage.usageReported ??
+      (usage.inputTokens !== null &&
+        usage.inputTokens !== undefined &&
+        usage.outputTokens !== null &&
+        usage.outputTokens !== undefined);
+    const totalTokens = usageReported
+      ? (usage.totalTokens ?? (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0))
+      : null;
+
+    const now = new Date();
+    const pricingRule =
+      tx.aiModelPricing && typeof tx.aiModelPricing.findFirst === "function"
+        ? await tx.aiModelPricing.findFirst({
+            where: {
+              organizationId: claimed.organizationId,
+              provider: usage.provider,
+              model: usage.model,
+              isActive: true,
+              effectiveFrom: { lte: now },
+              OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+            },
+            orderBy: [{ version: "desc" }],
+            select: {
+              id: true,
+              currency: true,
+              inputRatePer1m: true,
+              outputRatePer1m: true,
+              cachedInputRatePer1m: true,
+            },
+          })
+        : null;
+
+    const cost = computeUsageCostFromPricing({
+      usageReported,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cachedTokens: usage.cachedTokens ?? null,
+      pricingRule,
+      fallbackCostAvailable:
+        usage.costAvailable ??
+        (usageReported &&
+          usage.estimatedCostUsd !== null &&
+          usage.estimatedCostUsd !== undefined &&
+          Number(usage.estimatedCostUsd) > 0),
+      fallbackEstimatedCostUsd: usage.estimatedCostUsd,
     });
+
+    const idempotencyKey = `${claimed.id}:${usage.stageRole}:${callKey}`;
+    const data = {
+      runId: claimed.id,
+      organizationId: claimed.organizationId,
+      projectId: claimed.projectId,
+      userId: claimed.triggeredById ?? null,
+      stageRole: usage.stageRole,
+      provider: usage.provider,
+      model: usage.model,
+      usageAvailable: usageReported,
+      inputTokens: usageReported ? usage.inputTokens : null,
+      outputTokens: usageReported ? usage.outputTokens : null,
+      totalTokens,
+      cachedTokens: usage.cachedTokens ?? null,
+      reasoningTokens: usage.reasoningTokens ?? null,
+      pricingId: cost.pricingId,
+      currency: cost.currency,
+      costAvailable: cost.costAvailable,
+      estimatedCostUsd: cost.estimatedCostUsd,
+      latencyMs: usage.latencyMs,
+      idempotencyKey,
+    };
+
+    if (typeof tx.agentUsageRecord.upsert === "function") {
+      await tx.agentUsageRecord.upsert({
+        where: { idempotencyKey },
+        create: data,
+        update: {},
+      });
+      return;
+    }
+
+    await tx.agentUsageRecord.create({ data });
   }
 }

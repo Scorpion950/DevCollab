@@ -114,6 +114,26 @@ export async function apiUserFetch<T>(
   return performApiFetch<T>(path, token, init);
 }
 
+export async function apiUserRawResponse(
+  userId: string,
+  path: string,
+): Promise<Response | null> {
+  const base = getApiBaseUrl();
+  const token = await signUserAssertion(userId);
+  if (!base || !token) return null;
+  try {
+    return await fetch(`${base}${path.startsWith("/") ? path : `/${path}`}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(25_000),
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function apiServiceFetch<T>(
   path: string,
   init: { method?: string; body?: unknown } = {},

@@ -5,7 +5,9 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
+import { AnalyticsCacheService } from "../analytics/analytics-cache.service";
 import type {
   AiAssistantAttachedContextDto,
   AiAssistantCitationDto,
@@ -20,6 +22,7 @@ import type {
 } from "@devcollab/shared";
 import {
   buildAssistantPrompts,
+  computeUsageCostFromPricing,
   extractAssistantCitations,
   extractAssistantPatchProposal,
   isSensitiveOrBlockedPath,
@@ -85,6 +88,7 @@ export class AiAssistantService {
     private readonly db: DatabaseService,
     private readonly aiConfig: AiConfigService,
     private readonly worker: WorkerClientService,
+    @Optional() private readonly analyticsCache?: AnalyticsCacheService,
   ) {}
 
   private toMessageDto(row: {
@@ -144,6 +148,32 @@ export class AiAssistantService {
       _sum: { inputTokens: true, outputTokens: true, estimatedCostUsd: true },
     });
 
+    const usageDelegate = this.db.prisma.aiAssistantUsageRecord as unknown as {
+      findMany?: (args: unknown) => Promise<
+        Array<{
+          usageAvailable: boolean;
+          costAvailable: boolean;
+          currency: string;
+        }>
+      >;
+    };
+    let usageAvailable = true;
+    let costAvailable = usageAgg._sum.estimatedCostUsd !== null;
+    let currency = "USD";
+    if (typeof usageDelegate.findMany === "function") {
+      const sampleFlags = await usageDelegate.findMany({
+        where: { organizationId: orgId, projectId, userId: actorUserId },
+        select: { usageAvailable: true, costAvailable: true, currency: true },
+        take: 250,
+      });
+      if (sampleFlags.length > 0) {
+        usageAvailable = sampleFlags.some((r) => r.usageAvailable);
+        costAvailable = sampleFlags.some((r) => r.costAvailable);
+        const currencies = Array.from(new Set(sampleFlags.filter((r) => r.costAvailable).map((r) => r.currency)));
+        if (currencies.length === 1) currency = currencies[0]!;
+      }
+    }
+
     const reason = !configured
       ? "AI provider is not configured on this server (set AI_PROVIDER, AI_MODEL, and AI_API_KEY)."
       : !projectContext.canRunAi
@@ -158,8 +188,11 @@ export class AiAssistantService {
       model: configured ? (cfg.model ?? null) : null,
       canRunAi,
       reason,
+      usageAvailable,
       totalInputTokens: usageAgg._sum.inputTokens ?? 0,
       totalOutputTokens: usageAgg._sum.outputTokens ?? 0,
+      costAvailable,
+      currency,
       estimatedCostUsd: Number(usageAgg._sum.estimatedCostUsd ?? 0).toFixed(6),
     };
   }
@@ -753,6 +786,56 @@ export class AiAssistantService {
       }
 
       const savedAssistant = await this.db.prisma.$transaction(async (tx) => {
+        const usageReported = Boolean(
+          result.usage.usageReported &&
+            result.usage.inputTokens !== null &&
+            result.usage.outputTokens !== null,
+        );
+        const now = new Date();
+        const pricingDelegate = (tx as unknown as {
+          aiModelPricing?: {
+            findFirst?: (args: unknown) => Promise<{
+              id: string;
+              currency: string;
+              inputRatePer1m: { toString(): string } | string | number;
+              outputRatePer1m: { toString(): string } | string | number;
+              cachedInputRatePer1m: { toString(): string } | string | number | null;
+            } | null>;
+          };
+        }).aiModelPricing;
+
+        const pricingRule =
+          pricingDelegate && typeof pricingDelegate.findFirst === "function"
+            ? await pricingDelegate.findFirst({
+                where: {
+                  organizationId: input.orgId,
+                  provider: result.usage.provider,
+                  model: result.usage.model,
+                  isActive: true,
+                  effectiveFrom: { lte: now },
+                  OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+                },
+                orderBy: [{ version: "desc" }],
+                select: {
+                  id: true,
+                  currency: true,
+                  inputRatePer1m: true,
+                  outputRatePer1m: true,
+                  cachedInputRatePer1m: true,
+                },
+              })
+            : null;
+
+        const cost = computeUsageCostFromPricing({
+          usageReported,
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+          cachedTokens: result.usage.cachedTokens ?? null,
+          pricingRule,
+          fallbackCostAvailable: result.usage.costAvailable,
+          fallbackEstimatedCostUsd: result.usage.estimatedCostUsd,
+        });
+
         const updated = await tx.aiMessage.update({
           where: { id: assistantMsg.id },
           data: {
@@ -762,34 +845,53 @@ export class AiAssistantService {
             proposalJson: (fullProposal as unknown as object) ?? undefined,
             provider: result.usage.provider,
             model: result.usage.model,
-            inputTokens: result.usage.inputTokens,
-            outputTokens: result.usage.outputTokens,
+            inputTokens: usageReported ? (result.usage.inputTokens ?? 0) : 0,
+            outputTokens: usageReported ? (result.usage.outputTokens ?? 0) : 0,
             latencyMs: result.usage.latencyMs,
           },
           include: { author: { select: USER_SELECT } },
         });
 
-        await tx.aiAssistantUsageRecord.create({
-          data: {
-            conversationId: conv.id,
-            messageId: updated.id,
-            organizationId: input.orgId,
-            projectId: input.projectId,
-            userId: input.actorUserId,
-            actionKind,
-            provider: result.usage.provider,
-            model: result.usage.model,
-            inputTokens: result.usage.inputTokens,
-            outputTokens: result.usage.outputTokens,
-            totalTokens: result.usage.totalTokens,
-            estimatedCostUsd: result.usage.estimatedCostUsd,
-            latencyMs: result.usage.latencyMs,
-          },
-        });
+        const usagePayload = {
+          conversationId: conv.id,
+          messageId: updated.id,
+          organizationId: input.orgId,
+          projectId: input.projectId,
+          userId: input.actorUserId,
+          actionKind,
+          provider: result.usage.provider,
+          model: result.usage.model,
+          usageAvailable: usageReported,
+          inputTokens: usageReported ? result.usage.inputTokens : null,
+          outputTokens: usageReported ? result.usage.outputTokens : null,
+          totalTokens: usageReported ? result.usage.totalTokens : null,
+          cachedTokens: result.usage.cachedTokens ?? null,
+          reasoningTokens: result.usage.reasoningTokens ?? null,
+          pricingId: cost.pricingId,
+          currency: cost.currency,
+          costAvailable: cost.costAvailable,
+          estimatedCostUsd: cost.estimatedCostUsd,
+          latencyMs: result.usage.latencyMs,
+        };
+
+        const usageTxDelegate = tx.aiAssistantUsageRecord as unknown as {
+          upsert?: (args: unknown) => Promise<unknown>;
+          create: (args: { data: typeof usagePayload }) => Promise<unknown>;
+        };
+        if (typeof usageTxDelegate.upsert === "function") {
+          await usageTxDelegate.upsert({
+            where: { messageId: updated.id },
+            create: usagePayload,
+            update: {},
+          });
+        } else {
+          await usageTxDelegate.create({ data: usagePayload });
+        }
 
         return updated;
       });
 
+      this.analyticsCache?.invalidateProject(input.orgId, input.projectId);
       input.emit({
         type: "done",
         message: this.toMessageDto(savedAssistant),

@@ -21,10 +21,14 @@ export interface AiStageUsage {
   stageRole: AgentStageRole;
   provider: string;
   model: string;
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
-  estimatedCostUsd: string;
+  usageReported: boolean;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  cachedTokens: number | null;
+  reasoningTokens: number | null;
+  costAvailable: boolean;
+  estimatedCostUsd: string | null;
   latencyMs: number;
 }
 
@@ -75,10 +79,14 @@ export interface AiHttpTransport {
 export interface AssistantStreamUsage {
   provider: string;
   model: string;
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
-  estimatedCostUsd: string;
+  usageReported: boolean;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  cachedTokens: number | null;
+  reasoningTokens: number | null;
+  costAvailable: boolean;
+  estimatedCostUsd: string | null;
   latencyMs: number;
 }
 
@@ -284,8 +292,10 @@ export class AiProviderClient {
           }
 
           let rawContent = "";
-          let inputTokens = 0;
-          let outputTokens = 0;
+          let inputTokens: number | null = null;
+          let outputTokens: number | null = null;
+          let cachedTokens: number | null = null;
+          let reasoningTokens: number | null = null;
 
           if (this.config.provider === "anthropic") {
             const blocks = Array.isArray(payload.content) ? payload.content : [];
@@ -294,9 +304,25 @@ export class AiProviderClient {
                 Boolean(b) && typeof b === "object" && (b as { type?: string }).type === "text",
             );
             rawContent = typeof firstText?.text === "string" ? firstText.text : "";
-            const usageObj = payload.usage as { input_tokens?: number; output_tokens?: number } | undefined;
-            inputTokens = Number(usageObj?.input_tokens ?? 0);
-            outputTokens = Number(usageObj?.output_tokens ?? 0);
+            const usageObj = payload.usage as
+              | {
+                  input_tokens?: unknown;
+                  output_tokens?: unknown;
+                  cache_read_input_tokens?: unknown;
+                }
+              | undefined;
+            if (typeof usageObj?.input_tokens === "number" && Number.isFinite(usageObj.input_tokens)) {
+              inputTokens = Math.max(0, Math.round(usageObj.input_tokens));
+            }
+            if (typeof usageObj?.output_tokens === "number" && Number.isFinite(usageObj.output_tokens)) {
+              outputTokens = Math.max(0, Math.round(usageObj.output_tokens));
+            }
+            if (
+              typeof usageObj?.cache_read_input_tokens === "number" &&
+              Number.isFinite(usageObj.cache_read_input_tokens)
+            ) {
+              cachedTokens = Math.max(0, Math.round(usageObj.cache_read_input_tokens));
+            }
           } else {
             const choices = Array.isArray(payload.choices) ? payload.choices : [];
             const first = choices[0] as
@@ -311,10 +337,31 @@ export class AiProviderClient {
                 .join("\n");
             }
             const usageObj = payload.usage as
-              | { prompt_tokens?: number; completion_tokens?: number }
+              | {
+                  prompt_tokens?: unknown;
+                  completion_tokens?: unknown;
+                  prompt_tokens_details?: { cached_tokens?: unknown };
+                  completion_tokens_details?: { reasoning_tokens?: unknown };
+                }
               | undefined;
-            inputTokens = Number(usageObj?.prompt_tokens ?? 0);
-            outputTokens = Number(usageObj?.completion_tokens ?? 0);
+            if (typeof usageObj?.prompt_tokens === "number" && Number.isFinite(usageObj.prompt_tokens)) {
+              inputTokens = Math.max(0, Math.round(usageObj.prompt_tokens));
+            }
+            if (typeof usageObj?.completion_tokens === "number" && Number.isFinite(usageObj.completion_tokens)) {
+              outputTokens = Math.max(0, Math.round(usageObj.completion_tokens));
+            }
+            if (
+              typeof usageObj?.prompt_tokens_details?.cached_tokens === "number" &&
+              Number.isFinite(usageObj.prompt_tokens_details.cached_tokens)
+            ) {
+              cachedTokens = Math.max(0, Math.round(usageObj.prompt_tokens_details.cached_tokens));
+            }
+            if (
+              typeof usageObj?.completion_tokens_details?.reasoning_tokens === "number" &&
+              Number.isFinite(usageObj.completion_tokens_details.reasoning_tokens)
+            ) {
+              reasoningTokens = Math.max(0, Math.round(usageObj.completion_tokens_details.reasoning_tokens));
+            }
           }
 
           if (!rawContent.trim()) {
@@ -322,9 +369,11 @@ export class AiProviderClient {
           }
 
           const json = extractJsonObject(rawContent);
-          const safeInputTokens = Number.isFinite(inputTokens) && inputTokens >= 0 ? Math.round(inputTokens) : 0;
-          const safeOutputTokens =
-            Number.isFinite(outputTokens) && outputTokens >= 0 ? Math.round(outputTokens) : 0;
+          const usageReported = inputTokens !== null && outputTokens !== null;
+          const totalTokens = usageReported ? inputTokens! + outputTokens! : null;
+          const hasConfiguredEnvPricing =
+            this.config.priceInputPer1m > 0 || this.config.priceOutputPer1m > 0;
+          const costAvailable = usageReported && hasConfiguredEnvPricing;
           const latencyMs = Math.max(1, Date.now() - startMs);
 
           return {
@@ -333,15 +382,21 @@ export class AiProviderClient {
               stageRole,
               provider: this.config.provider,
               model: this.config.model,
-              inputTokens: safeInputTokens,
-              outputTokens: safeOutputTokens,
-              totalTokens: safeInputTokens + safeOutputTokens,
-              estimatedCostUsd: computeEstimatedCostUsd(
-                safeInputTokens,
-                safeOutputTokens,
-                this.config.priceInputPer1m,
-                this.config.priceOutputPer1m,
-              ),
+              usageReported,
+              inputTokens,
+              outputTokens,
+              totalTokens,
+              cachedTokens,
+              reasoningTokens,
+              costAvailable,
+              estimatedCostUsd: costAvailable
+                ? computeEstimatedCostUsd(
+                    inputTokens!,
+                    outputTokens!,
+                    this.config.priceInputPer1m,
+                    this.config.priceOutputPer1m,
+                  )
+                : null,
               latencyMs,
             },
           };
@@ -581,9 +636,6 @@ export class AiProviderClient {
     const streamFn = this.transport.streamPost ?? DEFAULT_AI_HTTP_TRANSPORT.streamPost!;
     const endpoint = this.resolveEndpoint();
     const startMs = Date.now();
-    const estimatedInputChars =
-      input.systemPrompt.length +
-      input.messages.reduce((sum, msg) => sum + msg.content.length, 0);
 
     const headers: Record<string, string> =
       this.config.provider === "anthropic"
@@ -661,8 +713,10 @@ export class AiProviderClient {
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
     let fullText = "";
-    let inputTokens = 0;
-    let outputTokens = 0;
+    let inputTokens: number | null = null;
+    let outputTokens: number | null = null;
+    let cachedTokens: number | null = null;
+    let reasoningTokens: number | null = null;
     let currentEventType = "";
 
     const abortReader = () => {
@@ -707,9 +761,17 @@ export class AiProviderClient {
           if (this.config.provider === "anthropic") {
             const evtType = typeof parsed.type === "string" ? parsed.type : currentEventType;
             if (evtType === "message_start") {
-              const msg = parsed.message as { usage?: { input_tokens?: number } } | undefined;
-              if (typeof msg?.usage?.input_tokens === "number") {
-                inputTokens = Math.max(inputTokens, Math.round(msg.usage.input_tokens));
+              const msg = parsed.message as
+                | { usage?: { input_tokens?: unknown; cache_read_input_tokens?: unknown } }
+                | undefined;
+              if (typeof msg?.usage?.input_tokens === "number" && Number.isFinite(msg.usage.input_tokens)) {
+                inputTokens = Math.max(inputTokens ?? 0, Math.round(msg.usage.input_tokens));
+              }
+              if (
+                typeof msg?.usage?.cache_read_input_tokens === "number" &&
+                Number.isFinite(msg.usage.cache_read_input_tokens)
+              ) {
+                cachedTokens = Math.max(cachedTokens ?? 0, Math.round(msg.usage.cache_read_input_tokens));
               }
             } else if (evtType === "content_block_delta") {
               const delta = parsed.delta as { type?: string; text?: string } | undefined;
@@ -718,9 +780,9 @@ export class AiProviderClient {
                 input.onDelta(delta.text);
               }
             } else if (evtType === "message_delta") {
-              const usage = parsed.usage as { output_tokens?: number } | undefined;
-              if (typeof usage?.output_tokens === "number") {
-                outputTokens = Math.max(outputTokens, Math.round(usage.output_tokens));
+              const usage = parsed.usage as { output_tokens?: unknown } | undefined;
+              if (typeof usage?.output_tokens === "number" && Number.isFinite(usage.output_tokens)) {
+                outputTokens = Math.max(outputTokens ?? 0, Math.round(usage.output_tokens));
               }
             }
           } else {
@@ -732,14 +794,34 @@ export class AiProviderClient {
               input.onDelta(deltaText);
             }
             const usage = parsed.usage as
-              | { prompt_tokens?: number; completion_tokens?: number }
+              | {
+                  prompt_tokens?: unknown;
+                  completion_tokens?: unknown;
+                  prompt_tokens_details?: { cached_tokens?: unknown };
+                  completion_tokens_details?: { reasoning_tokens?: unknown };
+                }
               | undefined;
             if (usage) {
-              if (typeof usage.prompt_tokens === "number") {
-                inputTokens = Math.max(inputTokens, Math.round(usage.prompt_tokens));
+              if (typeof usage.prompt_tokens === "number" && Number.isFinite(usage.prompt_tokens)) {
+                inputTokens = Math.max(inputTokens ?? 0, Math.round(usage.prompt_tokens));
               }
-              if (typeof usage.completion_tokens === "number") {
-                outputTokens = Math.max(outputTokens, Math.round(usage.completion_tokens));
+              if (typeof usage.completion_tokens === "number" && Number.isFinite(usage.completion_tokens)) {
+                outputTokens = Math.max(outputTokens ?? 0, Math.round(usage.completion_tokens));
+              }
+              if (
+                typeof usage.prompt_tokens_details?.cached_tokens === "number" &&
+                Number.isFinite(usage.prompt_tokens_details.cached_tokens)
+              ) {
+                cachedTokens = Math.max(cachedTokens ?? 0, Math.round(usage.prompt_tokens_details.cached_tokens));
+              }
+              if (
+                typeof usage.completion_tokens_details?.reasoning_tokens === "number" &&
+                Number.isFinite(usage.completion_tokens_details.reasoning_tokens)
+              ) {
+                reasoningTokens = Math.max(
+                  reasoningTokens ?? 0,
+                  Math.round(usage.completion_tokens_details.reasoning_tokens),
+                );
               }
             }
           }
@@ -768,10 +850,11 @@ export class AiProviderClient {
       throw new AiProviderError("AI provider streamed an empty response.", "AI_EMPTY_OUTPUT");
     }
 
-    const safeInputTokens =
-      inputTokens > 0 ? inputTokens : Math.max(1, Math.ceil(estimatedInputChars / 4));
-    const safeOutputTokens =
-      outputTokens > 0 ? outputTokens : Math.max(1, Math.ceil(fullText.length / 4));
+    const usageReported = inputTokens !== null && outputTokens !== null;
+    const totalTokens = usageReported ? inputTokens! + outputTokens! : null;
+    const hasConfiguredEnvPricing =
+      this.config.priceInputPer1m > 0 || this.config.priceOutputPer1m > 0;
+    const costAvailable = usageReported && hasConfiguredEnvPricing;
     const latencyMs = Math.max(1, Date.now() - startMs);
 
     return {
@@ -779,15 +862,21 @@ export class AiProviderClient {
       usage: {
         provider: this.config.provider,
         model: this.config.model,
-        inputTokens: safeInputTokens,
-        outputTokens: safeOutputTokens,
-        totalTokens: safeInputTokens + safeOutputTokens,
-        estimatedCostUsd: computeEstimatedCostUsd(
-          safeInputTokens,
-          safeOutputTokens,
-          this.config.priceInputPer1m,
-          this.config.priceOutputPer1m,
-        ),
+        usageReported,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        cachedTokens,
+        reasoningTokens,
+        costAvailable,
+        estimatedCostUsd: costAvailable
+          ? computeEstimatedCostUsd(
+              inputTokens!,
+              outputTokens!,
+              this.config.priceInputPer1m,
+              this.config.priceOutputPer1m,
+            )
+          : null,
         latencyMs,
       },
     };

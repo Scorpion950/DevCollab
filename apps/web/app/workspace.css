@@ -2393,3 +2393,239 @@ tr:hover .diff-add-comment-btn,
   gap: .25rem;
   margin-top: .45rem;
 }
+
+/* Brick 9 Analytics */
+.banner-warn {
+  border-color: color-mix(in srgb, var(--warm-ink) 45%, var(--border));
+  background: color-mix(in srgb, var(--warm-ink) 10%, var(--card));
+  color: var(--foreground);
+}
+
+.analytics-page,
+.analytics-stack {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.analytics-filter-card {
+  display: grid;
+  gap: .75rem;
+}
+
+.analytics-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .65rem;
+}
+
+.analytics-preset-group,
+.analytics-custom-form,
+.analytics-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem;
+}
+
+.analytics-inline-label {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.analytics-date-input {
+  width: 9.25rem;
+  min-height: 2.1rem;
+  padding: .3rem .5rem;
+  font-size: .82rem;
+}
+
+.analytics-tz-select {
+  width: auto;
+  min-width: 9rem;
+  min-height: 2.1rem;
+  padding: .3rem .55rem;
+  font-size: .82rem;
+}
+
+.analytics-filter-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .5rem;
+  font: 400 .78rem/1.3 var(--mono-font);
+  color: var(--muted-foreground);
+}
+
+.analytics-dist-wrap {
+  display: grid;
+  gap: .85rem;
+}
+
+.analytics-stacked-bar {
+  display: flex;
+  height: .75rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--well);
+  border: 1px solid var(--border);
+  gap: 1px;
+}
+
+.analytics-legend-grid {
+  display: grid;
+  gap: .4rem;
+}
+
+.analytics-legend-item {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  font-size: .84rem;
+}
+
+.analytics-swatch {
+  display: inline-block;
+  width: .68rem;
+  height: .68rem;
+  border-radius: 2px;
+  flex: none;
+}
+
+.analytics-chart-box {
+  display: grid;
+  gap: .5rem;
+}
+
+.analytics-chart-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: .5rem;
+  font-size: .8rem;
+}
+
+.analytics-legend-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .85rem;
+  align-items: center;
+}
+
+.analytics-legend-inline span {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.analytics-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+  color: var(--foreground);
+}
+
+.analytics-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15.5rem), 1fr));
+  gap: .85rem;
+}
+
+.analytics-health-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .85rem;
+  background: var(--well);
+  display: grid;
+  gap: .5rem;
+  align-content: start;
+}
+
+.analytics-compact-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .45rem;
+}
+
+.analytics-compact-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: .45rem;
+  padding-top: .4rem;
+  border-top: 1px solid var(--border);
+  font-size: .82rem;
+}
+
+.analytics-compact-list li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.analytics-budget-item {
+  display: grid;
+  gap: .5rem;
+  padding: .8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--well);
+}
+
+.analytics-budget-bar {
+  height: .55rem;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.analytics-budget-bar > div {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.analytics-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: .65rem;
+  align-items: end;
+}
+
+.field-group {
+  display: grid;
+  gap: .28rem;
+  font-size: .78rem;
+  color: var(--muted-foreground);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes devcollab-spin {
+  to { transform: rotate(360deg); }
+}
+
+.spin-icon {
+  animation: devcollab-spin .8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin-icon {
+    animation: none;
+  }
+}

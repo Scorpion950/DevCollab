@@ -4,7 +4,9 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
+import { AnalyticsCacheService } from "../analytics/analytics-cache.service";
 import type {
   MyTaskItemDto,
   MyTasksResponseDto,
@@ -71,6 +73,7 @@ export class TasksService {
   constructor(
     private readonly db: DatabaseService,
     private readonly authz: AuthorizationService,
+    @Optional() private readonly analyticsCache?: AnalyticsCacheService,
   ) {}
 
   async getProjectTaskSummary(orgId: string, projectId: string): Promise<ProjectTaskSummaryDto> {
@@ -381,6 +384,7 @@ export class TasksService {
       return task.id;
     });
 
+    this.analyticsCache?.invalidateProject(orgId, projectId);
     return this.getTaskDetail(orgId, projectId, createdId, actorUserId, canManageProject);
   }
 
@@ -711,6 +715,7 @@ export class TasksService {
       }
     });
 
+    this.analyticsCache?.invalidateProject(orgId, projectId);
     return this.getTaskDetail(orgId, projectId, taskId, actorUserId, canManageProject);
   }
 
@@ -762,6 +767,7 @@ export class TasksService {
       });
     });
 
+    this.analyticsCache?.invalidateProject(orgId, projectId);
     return this.getTaskDetail(orgId, projectId, taskId, actorUserId, canManageProject);
   }
 

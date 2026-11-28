@@ -835,8 +835,13 @@ export function TaskAgentWorkspace({
                     <Clock size={16} /> Model Usage &amp; Cost Telemetry
                   </h2>
                   <span className="badge">
-                    {run.usageTotals.totalTokens.toLocaleString()} tokens ·{" "}
-                    {formatUsd(run.usageTotals.estimatedCostUsd)}
+                    {run.usageTotals.usageAvailable === false
+                      ? `${run.usageTotals.callCount} call(s) (usage unavailable)`
+                      : `${run.usageTotals.totalTokens.toLocaleString()} tokens`}{" "}
+                    ·{" "}
+                    {formatUsd(run.usageTotals.estimatedCostUsd, {
+                      costAvailable: run.usageTotals.costAvailable,
+                    })}
                   </span>
                 </div>
 
@@ -864,13 +869,18 @@ export function TaskAgentWorkspace({
                               {u.model}
                             </td>
                             <td style={{ fontFamily: "var(--mono-font)", fontSize: ".76rem" }}>
-                              {u.inputTokens.toLocaleString()} / {u.outputTokens.toLocaleString()}
+                              {u.usageAvailable === false
+                                ? "Usage unavailable"
+                                : `${u.inputTokens.toLocaleString()} / ${u.outputTokens.toLocaleString()}`}
                             </td>
                             <td style={{ fontFamily: "var(--mono-font)", fontSize: ".76rem" }}>
                               {u.latencyMs}ms
                             </td>
                             <td style={{ fontFamily: "var(--mono-font)", fontSize: ".76rem" }}>
-                              {formatUsd(u.estimatedCostUsd)}
+                              {formatUsd(u.estimatedCostUsd, {
+                                costAvailable: u.costAvailable,
+                                currency: u.currency,
+                              })}
                             </td>
                           </tr>
                         ))}

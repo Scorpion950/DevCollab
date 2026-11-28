@@ -17,6 +17,7 @@ import {
   Settings,
   ShieldCheck,
   Sun,
+  BarChart3,
   UserRound,
   UsersRound,
   X,
@@ -71,6 +72,9 @@ function buildBreadcrumbs(pathname: string, orgName: string | null) {
     } else if (rest === "/ide") {
       parts.push({ label: "Project", href: projectBase });
       parts.push({ label: "Browser IDE" });
+    } else if (rest === "/analytics") {
+      parts.push({ label: "Project", href: projectBase });
+      parts.push({ label: "Analytics" });
     } else if (rest === "/repository") {
       parts.push({ label: "Project", href: projectBase });
       parts.push({ label: "Repository" });
@@ -90,6 +94,8 @@ function buildBreadcrumbs(pathname: string, orgName: string | null) {
     parts.push({ label: "Members" });
   } else if (pathname.startsWith("/app/invitations")) {
     parts.push({ label: "Invitations" });
+  } else if (pathname.startsWith("/app/analytics")) {
+    parts.push({ label: "Analytics" });
   } else if (pathname.startsWith("/app/settings")) {
     parts.push({ label: "Organization settings" });
   } else if (pathname.startsWith("/app/profile")) {
@@ -317,6 +323,15 @@ export function AppShell({
               </Link>
               {isOrgAdmin && (
                 <>
+                  <Link
+                    href="/app/analytics"
+                    className="sidebar-link"
+                    aria-current={isActive("/app/analytics") ? "page" : undefined}
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    <BarChart3 size={17} />
+                    Analytics
+                  </Link>
                   <Link
                     href="/app/members"
                     className="sidebar-link"

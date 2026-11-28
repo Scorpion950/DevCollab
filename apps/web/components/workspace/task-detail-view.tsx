@@ -751,8 +751,13 @@ export function TaskDetailView({
                 </div>
                 <div className="inline-actions" style={{ gap: ".5rem" }}>
                   <span className="field-hint" style={{ fontFamily: "var(--mono-font)", fontSize: ".76rem" }}>
-                    {task.latestAgentRun.usageTotals.totalTokens.toLocaleString()} tok ·{" "}
-                    {formatUsd(task.latestAgentRun.usageTotals.estimatedCostUsd)}
+                    {task.latestAgentRun.usageTotals.usageAvailable === false
+                      ? "Usage unavailable"
+                      : `${task.latestAgentRun.usageTotals.totalTokens.toLocaleString()} tok`}{" "}
+                    ·{" "}
+                    {formatUsd(task.latestAgentRun.usageTotals.estimatedCostUsd, {
+                      costAvailable: task.latestAgentRun.usageTotals.costAvailable,
+                    })}
                   </span>
                   <Link
                     href={`/app/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(task.id)}/agent?runId=${encodeURIComponent(task.latestAgentRun.id)}`}

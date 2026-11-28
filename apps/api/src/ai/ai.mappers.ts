@@ -28,10 +28,13 @@ export interface UsageLike {
   stageRole: AgentStageRole;
   provider: string;
   model: string;
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
-  estimatedCostUsd: { toString(): string } | string | number;
+  usageAvailable?: boolean;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  costAvailable?: boolean;
+  currency?: string;
+  estimatedCostUsd: { toString(): string } | string | number | null;
   latencyMs: number;
   createdAt: Date;
 }
@@ -41,36 +44,80 @@ export function sumUsageTotals(records: UsageLike[]): AgentUsageTotalsDto {
   let outputTokens = 0;
   let totalTokens = 0;
   let cost = 0;
+  let reportedUsageCount = 0;
+  let unreportedUsageCallCount = 0;
+  let costAvailableCount = 0;
+  let unpricedCallCount = 0;
 
   for (const r of records) {
-    inputTokens += Number(r.inputTokens) || 0;
-    outputTokens += Number(r.outputTokens) || 0;
-    totalTokens += Number(r.totalTokens) || 0;
-    const n = Number(r.estimatedCostUsd);
-    if (Number.isFinite(n)) cost += n;
+    const hasUsage =
+      r.usageAvailable !== false &&
+      r.inputTokens !== null &&
+      r.outputTokens !== null;
+    if (hasUsage) {
+      reportedUsageCount += 1;
+      inputTokens += Number(r.inputTokens) || 0;
+      outputTokens += Number(r.outputTokens) || 0;
+      totalTokens +=
+        r.totalTokens !== null && r.totalTokens !== undefined
+          ? Number(r.totalTokens) || 0
+          : (Number(r.inputTokens) || 0) + (Number(r.outputTokens) || 0);
+    } else {
+      unreportedUsageCallCount += 1;
+    }
+
+    const hasCost = r.costAvailable !== false && r.estimatedCostUsd !== null;
+    if (hasCost) {
+      const n = Number(r.estimatedCostUsd);
+      if (Number.isFinite(n)) {
+        cost += n;
+        costAvailableCount += 1;
+      } else {
+        unpricedCallCount += 1;
+      }
+    } else {
+      unpricedCallCount += 1;
+    }
   }
 
   return {
+    usageAvailable: records.length === 0 ? true : reportedUsageCount > 0,
     inputTokens,
     outputTokens,
     totalTokens,
+    costAvailable: records.length === 0 ? true : costAvailableCount > 0,
     estimatedCostUsd: cost.toFixed(6),
     callCount: records.length,
+    unreportedUsageCallCount,
+    unpricedCallCount,
   };
 }
 
 export function toAgentUsageRecordDto(record: UsageLike): AgentUsageRecordDto {
-  const numericCost = Number(record.estimatedCostUsd);
+  const usageAvailable =
+    record.usageAvailable !== false &&
+    record.inputTokens !== null &&
+    record.outputTokens !== null;
+  const costAvailable =
+    record.costAvailable !== false && record.estimatedCostUsd !== null;
+  const numericCost =
+    record.estimatedCostUsd !== null ? Number(record.estimatedCostUsd) : NaN;
+  const inTok = record.inputTokens ?? 0;
+  const outTok = record.outputTokens ?? 0;
   return {
     id: record.id,
     runId: record.runId,
     stageRole: record.stageRole,
     provider: record.provider,
     model: record.model,
-    inputTokens: record.inputTokens,
-    outputTokens: record.outputTokens,
-    totalTokens: record.totalTokens,
-    estimatedCostUsd: Number.isFinite(numericCost) ? numericCost.toFixed(6) : "0.000000",
+    usageAvailable,
+    inputTokens: inTok,
+    outputTokens: outTok,
+    totalTokens: record.totalTokens ?? inTok + outTok,
+    costAvailable,
+    currency: record.currency ?? "USD",
+    estimatedCostUsd:
+      costAvailable && Number.isFinite(numericCost) ? numericCost.toFixed(6) : "0.000000",
     latencyMs: record.latencyMs,
     createdAt: record.createdAt.toISOString(),
   };

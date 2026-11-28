@@ -18,6 +18,7 @@ import type {
   TaskAgentWorkspaceDto,
 } from "@devcollab/shared";
 import { scrubSecrets } from "@devcollab/ai-core";
+import { AnalyticsCacheService } from "../analytics/analytics-cache.service";
 import type { ProjectContext } from "../authorization/authorization.constants";
 import { DatabaseService } from "../database/database.service";
 import { GitHubApiError, GitHubAppClientService } from "../github/github-app-client.service";
@@ -85,6 +86,7 @@ export class AiRunsService {
     private readonly githubConfig: GitHubConfigService,
     private readonly githubClient: GitHubAppClientService,
     @Optional() private readonly tasks?: TasksService,
+    @Optional() private readonly analyticsCache?: AnalyticsCacheService,
   ) {}
 
   private evaluateStaleContext(
@@ -549,6 +551,7 @@ export class AiRunsService {
       return created;
     });
 
+    this.analyticsCache?.invalidateProject(orgId, projectId);
     return this.getRunDetail(orgId, projectId, run.id, projectContext);
   }
 
@@ -859,6 +862,7 @@ export class AiRunsService {
       });
     });
 
+    this.analyticsCache?.invalidateProject(orgId, projectId);
     return this.getRunDetail(orgId, projectId, runId, projectContext);
   }
 
@@ -1071,6 +1075,7 @@ export class AiRunsService {
       });
     });
 
+    this.analyticsCache?.invalidateProject(orgId, projectId);
     return this.getRunDetail(orgId, projectId, runId, projectContext);
   }
 
@@ -1135,6 +1140,7 @@ export class AiRunsService {
       });
     });
 
+    this.analyticsCache?.invalidateProject(orgId, projectId);
     return this.getRunDetail(orgId, projectId, runId, projectContext);
   }
 
@@ -1214,6 +1220,7 @@ export class AiRunsService {
       });
     });
 
+    this.analyticsCache?.invalidateProject(orgId, projectId);
     return this.getRunDetail(orgId, projectId, runId, projectContext);
   }
 }
