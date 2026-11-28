@@ -13,6 +13,7 @@ import {
 } from "@nestjs/common";
 import { RequireOrgRoles, type ScopedRequest } from "../authorization/authorization.constants";
 import { OrgAccessGuard } from "../authorization/org-access.guard";
+import { WriteRateLimitGuard } from "../common/write-rate-limit.guard";
 import { InternalIdentityGuard } from "../users/identity.guard";
 import { MembershipsService } from "./memberships.service";
 
@@ -30,6 +31,7 @@ export class MembershipsController {
 
   @Patch("members/:memberId/role")
   @RequireOrgRoles("OWNER")
+  @UseGuards(WriteRateLimitGuard)
   async updateRole(
     @Req() request: ScopedRequest,
     @Param("orgId") orgId: string,
@@ -48,6 +50,7 @@ export class MembershipsController {
 
   @Post("transfer-ownership")
   @RequireOrgRoles("OWNER")
+  @UseGuards(WriteRateLimitGuard)
   async transferOwnership(
     @Req() request: ScopedRequest,
     @Param("orgId") orgId: string,
@@ -59,6 +62,7 @@ export class MembershipsController {
 
   @Delete("members/:memberId")
   @RequireOrgRoles("OWNER", "ADMIN")
+  @UseGuards(WriteRateLimitGuard)
   async remove(
     @Req() request: ScopedRequest,
     @Param("orgId") orgId: string,

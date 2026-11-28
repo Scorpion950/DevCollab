@@ -290,8 +290,6 @@ export class WorkspacesService {
       );
     }
 
-    await this.expireStaleWorkspaces(orgId, projectId);
-
     const [capabilities, projectRow, repoRow, workspaceRows, taskRows, proposalRuns] =
       await Promise.all([
         this.worker.getRuntimeCapabilities(),
@@ -401,7 +399,19 @@ export class WorkspacesService {
             },
           },
         }),
+        this.expireStaleWorkspaces(orgId, projectId),
       ]);
+
+    const nowMs = Date.now();
+    for (const ws of workspaceRows) {
+      if (
+        ws.expiresAt &&
+        ws.expiresAt.getTime() < nowMs &&
+        ["READY", "ACTIVE", "SUSPENDED", "STOPPED"].includes(ws.status)
+      ) {
+        ws.status = "EXPIRED";
+      }
+    }
 
     const projectDto = {
       ...toProjectDetailDto(projectRow, actorUserId, actorOrgRole),

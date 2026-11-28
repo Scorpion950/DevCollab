@@ -5,15 +5,28 @@ const { AbortSignal, fetch, FormData, URL } = globalThis;
 const web = "http://localhost:3000";
 const api = "http://localhost:4000/api";
 
-test("both development services are reachable and Next.js can read API health", async () => {
-  const [home, health, diagnostic] = await Promise.all([
-    fetch(web), fetch(api + "/health"), fetch(web + "/dev/health"),
+test("services are reachable and /dev/health matches runtime mode", async () => {
+  const [home, health, ready, diagnostic] = await Promise.all([
+    fetch(web),
+    fetch(api + "/health"),
+    fetch(api + "/health/ready"),
+    fetch(web + "/dev/health"),
   ]);
   assert.equal(home.status, 200);
   assert.equal(health.status, 200);
   assert.deepEqual(await health.json(), { status: "ok", service: "devcollab-api" });
-  assert.equal(diagnostic.status, 200);
-  assert.match(await diagnostic.text(), /<h2>Connected<\/h2>/);
+  assert.equal(ready.status, 200);
+  assert.equal((await ready.json()).status, "ready");
+
+  if (diagnostic.status === 200) {
+    assert.match(await diagnostic.text(), /<h2>Connected<\/h2>/);
+  } else {
+    assert.equal(
+      diagnostic.status,
+      404,
+      "Expected /dev/health to return 200 in development or 404 in production",
+    );
+  }
 });
 
 test("anonymous visitors cannot open either protected screen or read a profile", async () => {

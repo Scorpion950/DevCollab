@@ -20,6 +20,7 @@ import {
 } from "../authorization/authorization.constants";
 import { OrgAccessGuard } from "../authorization/org-access.guard";
 import { ProjectAccessGuard } from "../authorization/project-access.guard";
+import { WriteRateLimitGuard } from "../common/write-rate-limit.guard";
 import { InternalIdentityGuard } from "../users/identity.guard";
 import { ProjectsService } from "./projects.service";
 
@@ -46,6 +47,7 @@ export class ProjectsController {
 
   @Post()
   @RequireOrgRoles("OWNER", "ADMIN")
+  @UseGuards(WriteRateLimitGuard)
   async create(
     @Req() request: ScopedRequest,
     @Param("orgId") orgId: string,
@@ -104,7 +106,7 @@ export class ProjectsController {
   }
 
   @Patch(":projectId")
-  @UseGuards(ProjectAccessGuard)
+  @UseGuards(ProjectAccessGuard, WriteRateLimitGuard)
   @RequireProjectAccess("manage")
   async update(
     @Req() request: ScopedRequest,
@@ -129,7 +131,7 @@ export class ProjectsController {
   }
 
   @Post(":projectId/archive")
-  @UseGuards(ProjectAccessGuard)
+  @UseGuards(ProjectAccessGuard, WriteRateLimitGuard)
   @RequireProjectAccess("manage")
   @RequireOrgRoles("OWNER", "ADMIN")
   async archive(
@@ -148,7 +150,7 @@ export class ProjectsController {
   }
 
   @Post(":projectId/restore")
-  @UseGuards(ProjectAccessGuard)
+  @UseGuards(ProjectAccessGuard, WriteRateLimitGuard)
   @RequireProjectAccess("manage")
   @RequireOrgRoles("OWNER", "ADMIN")
   async restore(
@@ -167,7 +169,7 @@ export class ProjectsController {
   }
 
   @Put(":projectId/roles")
-  @UseGuards(ProjectAccessGuard)
+  @UseGuards(ProjectAccessGuard, WriteRateLimitGuard)
   @RequireProjectAccess("manage")
   async assignRole(
     @Req() request: ScopedRequest,
@@ -189,7 +191,7 @@ export class ProjectsController {
   }
 
   @Delete(":projectId/roles/:targetUserId")
-  @UseGuards(ProjectAccessGuard)
+  @UseGuards(ProjectAccessGuard, WriteRateLimitGuard)
   @RequireProjectAccess("manage")
   async removeRole(
     @Req() request: ScopedRequest,

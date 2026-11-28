@@ -6,7 +6,7 @@ import { AgentRunStatusBadge, formatUsd } from "@/components/workspace/ai-badges
 import { ProjectSubnav } from "@/components/workspace/project-subnav";
 import { formatDateTime } from "@/components/workspace/task-badges";
 import { apiUserFetch } from "@/lib/server/backend";
-import { getWorkspaceBootstrap } from "@/lib/server/dal";
+import { loadWithActiveOrg } from "@/lib/server/dal";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +15,23 @@ export default async function ProjectAiOverviewPage({
 }: {
   params: Promise<{ projectId: string }>;
 }) {
-  const [ctx, { projectId }] = await Promise.all([getWorkspaceBootstrap(), params]);
+  const { projectId } = await params;
+  const { ctx, data: results } = await loadWithActiveOrg((userId, orgId) =>
+    Promise.all([
+      apiUserFetch<ProjectDetailDto>(
+        userId,
+        `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}`,
+      ),
+      apiUserFetch<ProjectAiOverviewDto>(
+        userId,
+        `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}/ai/overview`,
+      ),
+    ]),
+  );
   if (!ctx) return null;
 
   const activeOrg = ctx.bootstrap.activeOrganization;
-  if (!activeOrg) {
+  if (!activeOrg || !results) {
     return (
       <section className="empty-panel">
         <h2>No active organization</h2>
@@ -30,16 +42,7 @@ export default async function ProjectAiOverviewPage({
     );
   }
 
-  const [projectRes, overviewRes] = await Promise.all([
-    apiUserFetch<ProjectDetailDto>(
-      ctx.bootstrap.user.id,
-      `/organizations/${encodeURIComponent(activeOrg.id)}/projects/${encodeURIComponent(projectId)}`,
-    ),
-    apiUserFetch<ProjectAiOverviewDto>(
-      ctx.bootstrap.user.id,
-      `/organizations/${encodeURIComponent(activeOrg.id)}/projects/${encodeURIComponent(projectId)}/ai/overview`,
-    ),
-  ]);
+  const [projectRes, overviewRes] = results;
 
   if (!projectRes.ok || !overviewRes.ok) {
     return (

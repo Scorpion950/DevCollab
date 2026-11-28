@@ -12,6 +12,7 @@ import {
 import { RequireOrgRoles, type ScopedRequest } from "../authorization/authorization.constants";
 import { InternalServiceGuard } from "../authorization/internal-service.guard";
 import { OrgAccessGuard } from "../authorization/org-access.guard";
+import { WriteRateLimitGuard } from "../common/write-rate-limit.guard";
 import { InternalIdentityGuard, type IdentityRequest } from "../users/identity.guard";
 import { InvitationsService } from "./invitations.service";
 
@@ -29,6 +30,7 @@ export class OrgInvitationsController {
 
   @Post()
   @RequireOrgRoles("OWNER", "ADMIN")
+  @UseGuards(WriteRateLimitGuard)
   async create(
     @Req() request: ScopedRequest,
     @Param("orgId") orgId: string,
@@ -45,6 +47,7 @@ export class OrgInvitationsController {
 
   @Post(":invitationId/revoke")
   @RequireOrgRoles("OWNER", "ADMIN")
+  @UseGuards(WriteRateLimitGuard)
   async revoke(
     @Req() request: ScopedRequest,
     @Param("orgId") orgId: string,
@@ -75,7 +78,7 @@ export class InvitationsController {
   }
 
   @Post("accept")
-  @UseGuards(InternalIdentityGuard)
+  @UseGuards(InternalIdentityGuard, WriteRateLimitGuard)
   async accept(@Req() request: IdentityRequest, @Body() body: { token?: unknown }) {
     if (!request.userId) throw new UnauthorizedException();
     return this.invitations.acceptInvitation(request.userId, body?.token);

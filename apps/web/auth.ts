@@ -29,6 +29,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
   }
   return {
     adapter,
+    trustHost:
+      process.env.AUTH_TRUST_HOST === "true" ||
+      Boolean(process.env.VERCEL) ||
+      process.env.NODE_ENV !== "production" ||
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(process.env.AUTH_URL ?? ""),
     session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
     pages: { signIn: "/auth/sign-in", error: "/auth/sign-in" },
     logger: { error(error) { console.error("Authentication error", "type" in error ? error.type : error.name); } },

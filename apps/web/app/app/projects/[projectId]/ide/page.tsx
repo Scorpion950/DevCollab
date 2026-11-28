@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ProjectIdeWorkspace } from "@/components/workspace/ide/project-ide-workspace";
 import { ProjectSubnav } from "@/components/workspace/project-subnav";
 import { apiUserFetch } from "@/lib/server/backend";
-import { getWorkspaceBootstrap } from "@/lib/server/dal";
+import { loadWithActiveOrg } from "@/lib/server/dal";
 
 export const dynamic = "force-dynamic";
 
@@ -16,15 +16,20 @@ export default async function ProjectIdePage({
   params: Promise<{ projectId: string }>;
   searchParams: Promise<{ workspaceId?: string; taskId?: string; proposalId?: string }>;
 }) {
-  const [ctx, { projectId }, { workspaceId, taskId, proposalId }] = await Promise.all([
-    getWorkspaceBootstrap(),
+  const [{ projectId }, { workspaceId, taskId, proposalId }] = await Promise.all([
     params,
     searchParams,
   ]);
+  const { ctx, data: res } = await loadWithActiveOrg((userId, orgId) =>
+    apiUserFetch<ProjectIdeOverviewDto>(
+      userId,
+      `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}/ide/overview`,
+    ),
+  );
   if (!ctx) return null;
 
   const activeOrg = ctx.bootstrap.activeOrganization;
-  if (!activeOrg) {
+  if (!activeOrg || !res) {
     return (
       <section className="empty-panel">
         <h2>No active organization</h2>
@@ -35,11 +40,6 @@ export default async function ProjectIdePage({
       </section>
     );
   }
-
-  const res = await apiUserFetch<ProjectIdeOverviewDto>(
-    ctx.bootstrap.user.id,
-    `/organizations/${encodeURIComponent(activeOrg.id)}/projects/${encodeURIComponent(projectId)}/ide/overview`,
-  );
 
   if (!res.ok) {
     return (

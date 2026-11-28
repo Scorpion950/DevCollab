@@ -28,13 +28,23 @@ export const getAuthenticatedSession = cache(async (): Promise<Session> => {
   return session;
 });
 
+export const getRequestOrgHint = cache(async () => {
+  const [session, cookieStore] = await Promise.all([getAuthenticatedSession(), cookies()]);
+  return {
+    userId: session.user!.id!,
+    requestedOrgId: cookieStore.get(ACTIVE_ORG_COOKIE)?.value ?? "",
+  };
+});
+
 export const getWorkspaceBootstrap = cache(
   async (): Promise<AuthenticatedContext | null> => {
-    const [session, cookieStore] = await Promise.all([getAuthenticatedSession(), cookies()]);
-    const requestedOrgId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value ?? "";
+    const [session, { userId, requestedOrgId }] = await Promise.all([
+      getAuthenticatedSession(),
+      getRequestOrgHint(),
+    ]);
     const query = requestedOrgId ? `?orgId=${encodeURIComponent(requestedOrgId)}` : "";
     const result = await apiUserFetch<WorkspaceBootstrap>(
-      session.user!.id!,
+      userId,
       `/workspace/bootstrap${query}`,
     );
 
@@ -48,3 +58,36 @@ export const getWorkspaceBootstrap = cache(
     return { session, bootstrap: result.data };
   },
 );
+
+/**
+ * Overlaps page-specific NestJS data loading with WorkspaceBootstrap whenever
+ * the active org cookie hint is present, eliminating sequential SSR waterfalls
+ * while keeping strict server-side org/RBAC fallback when no hint matches.
+ */
+export async function loadWithActiveOrg<T>(
+  fetcher: (userId: string, orgId: string) => Promise<T>,
+): Promise<{
+  ctx: AuthenticatedContext | null;
+  data: T | null;
+}> {
+  const { userId, requestedOrgId } = await getRequestOrgHint();
+  if (!requestedOrgId) {
+    const ctx = await getWorkspaceBootstrap();
+    const activeOrgId = ctx?.bootstrap.activeOrganization?.id;
+    if (!ctx || !activeOrgId) return { ctx, data: null };
+    const data = await fetcher(userId, activeOrgId);
+    return { ctx, data };
+  }
+
+  const [ctx, hintedData] = await Promise.all([
+    getWorkspaceBootstrap(),
+    fetcher(userId, requestedOrgId),
+  ]);
+  const activeOrgId = ctx?.bootstrap.activeOrganization?.id;
+  if (!ctx || !activeOrgId) return { ctx, data: null };
+  if (activeOrgId === requestedOrgId) {
+    return { ctx, data: hintedData };
+  }
+  const freshData = await fetcher(userId, activeOrgId);
+  return { ctx, data: freshData };
+}

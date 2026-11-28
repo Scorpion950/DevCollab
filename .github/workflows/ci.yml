@@ -1,0 +1,65 @@
+name: CI Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Validate, Lint, Typecheck, Test & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Prisma schema & build workspace dependencies
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/devcollab_ci?sslmode=disable
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/devcollab_ci?sslmode=disable
+        run: |
+          pnpm db:validate
+          pnpm --filter @devcollab/database build
+          pnpm --filter @devcollab/ai-core build
+
+      - name: Lint workspace
+        run: pnpm lint
+
+      - name: Typecheck workspace
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/devcollab_ci?sslmode=disable
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/devcollab_ci?sslmode=disable
+        run: pnpm typecheck
+
+      - name: Run Worker tests
+        run: pnpm --filter @devcollab/worker test
+
+      - name: Run API tests
+        run: pnpm --filter @devcollab/api test
+
+      - name: Build all apps & packages
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/devcollab_ci?sslmode=disable
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/devcollab_ci?sslmode=disable
+          AUTH_URL: http://127.0.0.1:3000
+          AUTH_SECRET: ci-only-placeholder-auth-secret-minimum-32-chars
+          INTERNAL_AUTH_SECRET: ci-only-placeholder-internal-secret-min-32-chars
+          API_BASE_URL: http://127.0.0.1:4000/api
+        run: pnpm build

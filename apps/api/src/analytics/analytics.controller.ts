@@ -19,6 +19,7 @@ import {
 } from "../authorization/authorization.constants";
 import { OrgAccessGuard } from "../authorization/org-access.guard";
 import { ProjectAccessGuard } from "../authorization/project-access.guard";
+import { WriteRateLimitGuard } from "../common/write-rate-limit.guard";
 import { InternalIdentityGuard } from "../users/identity.guard";
 import { AiPricingService } from "./ai-pricing.service";
 import { AnalyticsService, type AnalyticsQueryParams } from "./analytics.service";
@@ -69,6 +70,7 @@ export class AnalyticsController {
 
   @Post("pricing")
   @RequireOrgRoles("OWNER", "ADMIN")
+  @UseGuards(WriteRateLimitGuard)
   async createPricingVersion(
     @Req() request: ScopedRequest,
     @Body()
@@ -102,6 +104,7 @@ export class AnalyticsController {
 
   @Put("budgets/organization")
   @RequireOrgRoles("OWNER", "ADMIN")
+  @UseGuards(WriteRateLimitGuard)
   async upsertOrganizationBudget(
     @Req() request: ScopedRequest,
     @Body()
@@ -122,6 +125,7 @@ export class AnalyticsController {
   }
 
   @Get("export")
+  @UseGuards(WriteRateLimitGuard)
   @Header("Cache-Control", "private, no-store")
   async exportCsv(
     @Req() request: ScopedRequest,
@@ -180,6 +184,7 @@ export class ProjectAnalyticsController {
 
   @Put("budget")
   @RequireProjectAccess("manage")
+  @UseGuards(WriteRateLimitGuard)
   async upsertProjectBudget(
     @Req() request: ScopedRequest,
     @Param("projectId") projectId: string,

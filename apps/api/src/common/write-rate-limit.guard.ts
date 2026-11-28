@@ -34,7 +34,7 @@ export class WriteRateLimitGuard implements CanActivate {
 
     if (existing.count >= MAX_WRITES_PER_WINDOW) {
       throw new HttpException(
-        "Too many task updates in a short period. Please wait a moment and try again.",
+        "Too many requests in a short period. Please wait a moment and try again.",
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

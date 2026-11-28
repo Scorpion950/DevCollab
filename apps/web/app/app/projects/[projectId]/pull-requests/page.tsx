@@ -4,7 +4,7 @@ import type { ProjectDetailDto, PullRequestsListResponseDto } from "@devcollab/s
 import { Button } from "@/components/ui/button";
 import { PullRequestsListPanel } from "@/components/workspace/pull-requests-list-panel";
 import { apiUserFetch } from "@/lib/server/backend";
-import { getWorkspaceBootstrap } from "@/lib/server/dal";
+import { loadWithActiveOrg } from "@/lib/server/dal";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +13,24 @@ export default async function ProjectPullRequestsPage({
 }: {
   params: Promise<{ projectId: string }>;
 }) {
-  const [ctx, { projectId }] = await Promise.all([getWorkspaceBootstrap(), params]);
+  const { projectId } = await params;
+  const { ctx, data: results } = await loadWithActiveOrg((userId, orgId) =>
+    Promise.all([
+      apiUserFetch<ProjectDetailDto>(
+        userId,
+        `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}`,
+      ),
+      apiUserFetch<PullRequestsListResponseDto>(
+        userId,
+        `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}/github/pull-requests?state=OPEN&limit=20`,
+      ),
+    ]),
+  );
   if (!ctx) return null;
 
   const { bootstrap } = ctx;
   const activeOrg = bootstrap.activeOrganization;
-  if (!activeOrg) {
+  if (!activeOrg || !results) {
     return (
       <section className="empty-panel">
         <h2>No active organization</h2>
@@ -30,16 +42,7 @@ export default async function ProjectPullRequestsPage({
     );
   }
 
-  const [projRes, prsRes] = await Promise.all([
-    apiUserFetch<ProjectDetailDto>(
-      bootstrap.user.id,
-      `/organizations/${encodeURIComponent(activeOrg.id)}/projects/${encodeURIComponent(projectId)}`,
-    ),
-    apiUserFetch<PullRequestsListResponseDto>(
-      bootstrap.user.id,
-      `/organizations/${encodeURIComponent(activeOrg.id)}/projects/${encodeURIComponent(projectId)}/github/pull-requests?state=OPEN&limit=20`,
-    ),
-  ]);
+  const [projRes, prsRes] = results;
 
   if (!projRes.ok || !prsRes.ok) {
     return (

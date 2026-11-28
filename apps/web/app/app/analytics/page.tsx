@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import type {
-  AiBudgetAuditEventDto,
-  AiBudgetStatusDto,
   AiModelPricingDto,
   OrganizationAnalyticsDto,
 } from "@devcollab/shared";
@@ -52,16 +50,12 @@ export default async function OrganizationAnalyticsPage() {
   }
 
   const orgId = encodeURIComponent(activeOrg.id);
-  const [analyticsRes, pricingRes, budgetsRes] = await Promise.all([
+  const [analyticsRes, pricingRes] = await Promise.all([
     apiUserFetch<OrganizationAnalyticsDto>(
       userId,
       `/organizations/${orgId}/analytics/organization?preset=30d&timezone=UTC`,
     ),
     apiUserFetch<AiModelPricingDto[]>(userId, `/organizations/${orgId}/analytics/pricing`),
-    apiUserFetch<{ budgets: AiBudgetStatusDto[]; auditEvents: AiBudgetAuditEventDto[] }>(
-      userId,
-      `/organizations/${orgId}/analytics/budgets`,
-    ),
   ]);
 
   if (!analyticsRes.ok) {
@@ -77,10 +71,8 @@ export default async function OrganizationAnalyticsPage() {
     <OrgAnalyticsView
       initialData={analyticsRes.data}
       initialPricing={pricingRes.ok ? pricingRes.data : []}
-      initialBudgets={budgetsRes.ok ? budgetsRes.data.budgets : analyticsRes.data.budgets}
-      initialAuditEvents={
-        budgetsRes.ok ? budgetsRes.data.auditEvents : analyticsRes.data.budgetAuditEvents
-      }
+      initialBudgets={analyticsRes.data.budgets}
+      initialAuditEvents={analyticsRes.data.budgetAuditEvents}
     />
   );
 }

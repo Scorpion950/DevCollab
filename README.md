@@ -2,112 +2,155 @@
 
 **Build together. Ship smarter.**
 
-DevCollab is a collaborative software engineering workspace built for teams working alongside AI coding agents. It unifies organizations, team permissions, project structure, and developer workflows into a single platform.
+DevCollab is a collaborative software engineering workspace where human developers and AI coding agents plan, build, review, and ship software together inside organization-scoped environments.
 
-## Problem & approach
+---
 
-Engineering work often splits across separate tools for access control, task tracking, code review, and AI automation. DevCollab gives each organization an isolated workspace with explicit role-based permissions, scoped projects, and a foundation ready for upcoming repositories, Kanban boards, cloud development environments, and autonomous coding agents.
+## Key Features
 
-## Capabilities
+- **Authentication & Sessions:** Email/password registration and sign-in (`@node-rs/argon2` Argon2id hashing + DB-backed failed-login rate limiting), optional Google and GitHub OAuth via Auth.js v5, encrypted JWT sessions backed by server-side session revocation records on logout, and short-lived HS256 assertions between Web, API, and Worker.
+- **Organizations & Fine-Grained RBAC:** Multi-organization workspaces with organization switching, **Owner / Admin / Member** hierarchy, last-Owner protection, ownership transfer, SHA-256 hashed single-use invitations, and separate **Project Manager / Developer** project roles.
+- **Project Management, Kanban & Search:** Project key task identifiers (`KEY-001`), drag-and-drop and keyboard-accessible Kanban board, synchronized List view, **My Tasks** cross-project dashboard, task comments with edit/moderation controls, task archiving/restore, and full activity history.
+- **GitHub Integration & Internal Code Review:** Per-project GitHub App repository connection (separate from OAuth login), repository sync with cooldown, pull request filtering/search, unified and side-by-side diff viewer, commit-SHA-aware internal review decisions and line threads (never pushed to GitHub), task-to-PR links, and HMAC-SHA256 webhook verification with delivery deduplication.
+- **AI Coding Agents & Human Approval Gates:** Auditable `QUEUED -> PLANNING -> AWAITING_APPROVAL -> RUNNING -> AWAITING_REVIEW -> COMPLETED` lifecycle, `.gitignore` and secret-excluding context selection, stale-context plan approval checks, strict unified diff validation, revision history, and per-stage token telemetry.
+- **Browser IDE, Local Git & Isolated Terminal:** Multi-tab lazy-loaded Monaco Editor backed by persistent `DevWorkspace` lifecycles, optimistic conflict checks, File Explorer CRUD & search inside strict symlink/path boundaries, local Git stage/unstage/commit/branch controls (without auto-pushing), snapshot checkpoints, and xterm.js terminal strictly gated on hardened Docker availability.
+- **Real-Time Collaboration & Repository-Aware AI Assistant:** Private Yjs CRDT collaborative coding sessions (`y-monaco` + Worker `/collab` WebSocket gateway with durable `.bin` snapshots, `OWNER` / `EDITOR` / read-only `VIEWER` roles, live awareness cursors, and instant revocation), plus streaming SSE IDE AI Assistant (`OpenAI` / `Anthropic` / `OpenAI-compatible`) with cancellation, clickable citations, and conflict-checked patch proposals.
+- **Engineering Analytics, Pricing & Budgets:** Role-scoped views across **Organization Analytics** (`/app/analytics`, `OWNER`/`ADMIN`), **Project Analytics** (`/app/projects/[projectId]/analytics`), and **Personal Insights** (`/app/tasks?view=insights`), with versioned `AiModelPricing`, advisory weekly/monthly budgets, honest unknown/unpriced states, timezone-aware date filtering, and formula-safe RFC-4180 CSV exports.
 
-### Implemented
+---
 
-- **Authentication & session security:** Password registration and sign-in (Argon2id hashing, PostgreSQL-backed rate limits), optional Google and GitHub OAuth via Auth.js v5, encrypted JWT sessions backed by server-side session revocation records on logout, and short-lived HS256 server-to-server assertions between Next.js and NestJS.
-- **Smart navigation & welcome transition:** Automatic `/` → `/app` routing for authenticated users, auth-aware logo links, and a full-screen clickable/keyboard-skippable welcome transition (`/welcome`).
-- **Organizations & multi-org workspaces:** Create organizations with unique slugs, belong to multiple organizations, switch active organizations with server-side membership validation, update organization settings, and leave organizations safely.
-- **Organization & project RBAC:** Organization-level roles (`OWNER`, `ADMIN`, `MEMBER`) and separate project-level roles (`PROJECT_MANAGER`, `DEVELOPER`) enforced in NestJS guards and services, including last-Owner protection and ownership transfer.
-- **Secure invitations:** SHA-256 hashed single-use invitation links with expiration, revocation, email-match verification, and copy-link sharing (automatic email delivery is not configured yet).
-- **Projects & dashboards:** Create, view, edit, archive, and restore projects inside organizations; dedicated Organization Dashboard (`OWNER`/`ADMIN`), Project Management Dashboard (`OWNER`/`ADMIN`/`PROJECT_MANAGER`), and Developer Workspace (`MEMBER`).
-- **Task management, Kanban boards & collaboration:** Project-scoped task identifiers (`KEY-001`), Kanban board (drag-and-drop plus accessible status controls) and synchronized list view, search/filter/sort, **My Tasks** cross-project view, task archiving/restoring, task comments (author edit and manager moderation), and persistent task activity history.
-- **GitHub integration, pull requests & code review workspace:** Dedicated GitHub App repository connection per project (separate from Auth.js GitHub OAuth login), repository overview, synced pull requests with filtering/search/pagination, unified & side-by-side diff viewer (with binary/large/truncated patch handling), internal DevCollab review decisions & threaded file/line discussions (commit-SHA version-aware, never posted to GitHub), task-to-PR linking, manual sync with cooldown, and HMAC-SHA256 verified GitHub webhooks with delivery deduplication.
-- **AI coding agents, human approval gates & isolated execution:** Task-first AI coding workflow (`QUEUED -> PLANNING -> AWAITING_APPROVAL -> RUNNING -> AWAITING_REVIEW -> COMPLETED`), bounded repository context selection (`.gitignore` and secret-path exclusions), human plan approval/rejection/revision with stale-context checks, separate `@devcollab/worker` job processor with atomic lease claims, strict unified diff validation, optional hardened Docker sandbox check execution (`--network=none`, `--read-only`, `--cap-drop=ALL`, never running untrusted repo tests on the host when Docker is unavailable), proposal revision history, reusable diff viewer + internal acceptance/rejection controls, and per-stage token/cost telemetry.
-- **Browser IDE, File Explorer, Local Git & Isolated Terminal:** Dedicated project IDE workspace (`/app/projects/[projectId]/ide`) backed by persistent `DevWorkspace` lifecycle states, snapshot checkpoints, lazy-loaded Monaco Editor with optimistic version-conflict protection, File Explorer CRUD and debounced search inside strict path/symlink boundaries, real local Git source control (stage, unstage, commit, branch switch, diff viewer without automatic GitHub push), Brick 6 AI proposal preview and conflict-checked patch application, and xterm.js isolated terminal gated on hardened Docker runtime availability (never executing host OS shell fallbacks).
-- **Real-Time Collaborative Editing & Repository-Aware IDE AI Assistant:** Intentional, private project-scoped collaborative coding sessions powered by Yjs CRDT synchronization (`y-monaco` + authenticated WebSocket `/collab` gateway in `@devcollab/worker` with durable binary `.bin` state snapshots, `OWNER` / `EDITOR` / read-only `VIEWER` roles, live awareness cursors, instant access revocation invalidation, file-deletion safeguards, automatic CRDT-to-Git workspace flushing, and persisted session discussion), paired with a repository-aware IDE AI Assistant (`OpenAI` / `Anthropic` / `OpenAI-compatible` SSE streaming with cancellation, bounded `.gitignore`/secret-excluding context retrieval, inline Monaco code actions, clickable file citations, conflict-checked unified diff proposals, and usage telemetry).
-- **Engineering Analytics, AI Usage & Cost Visibility:** Role-scoped analytics across **Organization Analytics** (`/app/analytics`, strictly `OWNER`/`ADMIN`), **Project Analytics** (`/app/projects/[projectId]/analytics` via `ProjectSubnav`, adding truthful `TaskActivity`-based cycle time/lead time, factual queue health signals, synced GitHub PR metrics separate from internal reviews, AI run vs proposal/test accuracy, and project budgets), and **Personal Insights** (integrated directly inside `/app/tasks`); backed by versioned `AiModelPricing` with immutable historical cost snapshots, weekly/monthly advisory `AiBudgetConfig` warning thresholds (`hardEnforcementSupported: false`) and audit history, honest unknown-usage/unpriced states (never fabricating `$0.00` or `0` tokens), timezone-aware UTC date filtering, bounded short-TTL query caching with mutation invalidation, and formula-injection-safe RFC-4180 CSV exports.
-- **Workspace theming:** Dark (default) and warm off-white themes inside `/app` with cookie persistence; public marketing and auth pages remain dark.
+## Tech Stack & Monorepo Layout
 
-### Planned (upcoming milestones)
+- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Auth.js v5
+- **Backend & Worker:** NestJS 11 API (`apps/api`), standalone Node.js Worker + WebSocket server (`apps/worker`)
+- **Database:** Neon PostgreSQL with Prisma 7 (`@prisma/adapter-pg`)
+- **Tooling:** pnpm `10.32.1` monorepo on Node.js `24+`
 
-- Automated invitation and verification email delivery
-- Multi-user terminal sharing and cloud deployment integrations
-
-*Note: The public homepage and `/how-it-works` demos illustrate these planned workflows with local sample data.*
-
-## Technology stack
-
-- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui primitives, Lucide icons, Auth.js v5
-- **Backend:** NestJS 11, TypeScript, `jose`
-- **Database:** PostgreSQL (Neon), Prisma 7 (`@prisma/adapter-pg`)
-- **Workspace:** pnpm monorepo
-
-## Repository structure
-
-| Package / App | Responsibility |
+| Path | Responsibility |
 | --- | --- |
-| `apps/web` | Next.js App Router frontend, Auth.js session handling, BFF server actions, marketing pages, and `/app` workspace UI |
-| `apps/api` | NestJS REST API, authorization guards/policies, organization, membership, invitation, project, task, GitHub integration, collaborative session management, and AI agent/assistant orchestration |
-| `apps/worker` | Standalone AI agent job processor + workspace filesystem, Git runtime, recovery snapshots, isolated Docker WebSocket terminal, and Yjs CRDT collaborative WebSocket gateway |
-| `packages/ai-core` | Shared AI provider client (OpenAI/Anthropic/OpenAI-compatible), bounded context filtering, secret scrubbing, tarball extraction, and unified diff validator |
-| `packages/database` | Prisma schema, PostgreSQL driver adapter, Neon configuration, and additive migrations |
-| `packages/shared` | Shared TypeScript DTO contracts across web, API, and worker |
+| `apps/web` | Next.js App Router UI, Auth.js session handling, BFF API routes, and marketing site |
+| `apps/api` | NestJS REST API, RBAC guards, GitHub App/webhooks, AI/IDE orchestration, and analytics |
+| `apps/worker` | AI agent queue processor, local workspace filesystem/Git runtime, Docker terminal, and Yjs `/collab` gateway |
+| `packages/ai-core` | AI provider client, context/secret filtering, tar extraction, and unified diff validator |
+| `packages/database` | Prisma schema, PostgreSQL adapter, Neon config, and additive migrations |
+| `packages/shared` | Shared TypeScript DTO contracts across Web, API, and Worker |
+| `docs/` | [Manual Testing Guide](docs/MANUAL_TESTING_GUIDE.md) and [Deployment Checklist](docs/DEPLOYMENT_CHECKLIST.md) |
 
-## Environment setup & configuration
+---
 
-Each package loads its own environment file (`apps/web/.env.local`, `apps/api/.env`, `apps/worker/.env`, `packages/database/.env`) using per-package `.env.example` templates; [`.env.example`](.env.example) provides the full monorepo overview.
+## Prerequisites & Installation
 
-- **Database (`packages/database/.env`):** Requires Neon `DIRECT_URL` (for Prisma migrations) and pooled `DATABASE_URL` (shared with web, API, and worker).
-- **Web (`apps/web/.env.local`):** Requires `DATABASE_URL`, `AUTH_URL`, 32+ char `AUTH_SECRET`, 32+ char `INTERNAL_AUTH_SECRET`, and `API_BASE_URL`; optionally add `AUTH_GOOGLE_*` / `AUTH_GITHUB_*` for OAuth login and `GITHUB_REPOSITORY_URL`.
-- **API (`apps/api/.env`) & Worker (`apps/worker/.env`):** Require `DATABASE_URL` and the same `INTERNAL_AUTH_SECRET`, plus service URLs/ports (`PORT=4000`, `WORKER_PORT=4100`, `WORKER_URL`, `WORKER_TERMINAL_PUBLIC_URL`, `CORS_ORIGINS`). Local secrets (`AUTH_SECRET`, `INTERNAL_AUTH_SECRET`) can be generated via `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`; external credentials (Neon URLs, OAuth apps, GitHub App, AI API keys) are manual.
-- **Optional GitHub App, AI & Sandbox Isolation:** GitHub App (`GITHUB_APP_*`, `GITHUB_WEBHOOK_SECRET`) and AI (`AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`, optional `AI_API_BASE_URL` / `AI_PRICE_*`) are optional and degrade cleanly when empty. Keep `SANDBOX_ENABLED=false` and `WORKSPACE_TERMINAL_ENABLED=false` when Docker is unavailable — DevCollab never falls back to host shell execution. Real-time `/collab` WebSockets derive automatically from `WORKER_TERMINAL_PUBLIC_URL`.
-- **Validate without exposing secrets:** `pnpm env:check`
-
-## GitHub App integration setup
-
-To enable live repository connection, pull request synchronization, and AI agent repository access:
-
-1. Create a GitHub App on GitHub with **Read-only** Repository permissions for **Metadata**, **Pull requests**, and **Contents** (required for AI planning & execution snapshots; write permissions are not required).
-2. Set the GitHub App **Setup URL** to `https://<your-web-origin>/api/workspace/integrations/github/callback` (locally: `http://localhost:3000/api/workspace/integrations/github/callback`).
-3. Subscribe to webhook events: **Pull request**, **Pull request review**, **Installation**, and **Installation repositories**. Set the **Webhook URL** to your publicly reachable HTTPS endpoint forwarding to `/api/webhooks/github` (or `/api/integrations/github/webhooks` on the API server). Note: GitHub cannot reach `http://localhost` directly without a forwarding tunnel such as ngrok or Cloudflare Tunnel; use **Sync now** for manual synchronization locally.
-4. Set `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY` (with `\n` line escapes if single-line), and `GITHUB_WEBHOOK_SECRET` in `apps/api/.env`.
-
-## Local setup & commands
-
-Requires Node.js 24+ and pnpm 10.32+.
+Requires **Node.js `24+`** and **pnpm `10.32+`** (via Corepack or standalone pnpm), plus a Neon PostgreSQL database. Docker is optional and required only for sandboxed test runs and the isolated IDE terminal.
 
 ```sh
 corepack enable
 pnpm install --frozen-lockfile
+```
+
+---
+
+## Environment Configuration
+
+Each runtime package loads its own `.env` / `.env.local` file; [`.env.example`](.env.example) documents the complete variable map:
+
+| Package | Template | Target File | Purpose |
+| --- | --- | --- | --- |
+| Database | [`packages/database/.env.example`](packages/database/.env.example) | `packages/database/.env` | Neon `DIRECT_URL` (migrations) & pooled `DATABASE_URL` |
+| Web | [`apps/web/.env.example`](apps/web/.env.example) | `apps/web/.env.local` | `DATABASE_URL`, `AUTH_URL`, `AUTH_TRUST_HOST`, `AUTH_SECRET`, `INTERNAL_AUTH_SECRET`, `API_BASE_URL`, OAuth |
+| API | [`apps/api/.env.example`](apps/api/.env.example) | `apps/api/.env` | `PORT=4000`, `DATABASE_URL`, `INTERNAL_AUTH_SECRET`, `CORS_ORIGINS`, Worker URLs, GitHub App, AI provider |
+| Worker | [`apps/worker/.env.example`](apps/worker/.env.example) | `apps/worker/.env` | `WORKER_PORT=4100`, `DATABASE_URL`, `INTERNAL_AUTH_SECRET`, workspace dirs, Docker isolation flags, GitHub/AI |
+
+Generate distinct 32+ byte secrets (`AUTH_SECRET`, and a shared matching `INTERNAL_AUTH_SECRET` across Web, API, and Worker):
+
+```sh
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Validate configuration cleanly without exposing secret values:
+
+```sh
 pnpm env:check
+```
+
+---
+
+## Database Setup & Migrations
+
+```sh
 pnpm db:validate
 pnpm db:check
 pnpm db:deploy
+```
+
+Use `pnpm db:migrate` only when authoring new schema migrations during development.
+
+---
+
+## Local Development & Worker Execution
+
+Start the Next.js Web app (`:3000`) and NestJS API (`:4000`):
+
+```sh
 pnpm dev
 ```
 
-On Windows, run `pnpm.cmd dev` with ports `3000` (Next.js with Webpack) and `4000` (NestJS) available. To run the separate AI execution worker alongside the web and API servers:
+*(On Windows PowerShell/CMD, use `pnpm.cmd dev`.)*
+
+Start the background Worker service (`:4100` HTTP + `/terminal` + `/collab` WebSockets) in a separate terminal:
 
 ```sh
 pnpm dev:worker
 ```
 
-Untrusted repository test scripts execute only inside a hardened Docker container (`--network=none`, `--read-only`, `--cap-drop=ALL`). When Docker is unavailable on the host, the worker cleanly marks test runs as `UNAVAILABLE` and never executes repository commands on the host.
-
-### AI Model Pricing & Advisory Budgets (Brick 9)
-
-- AI spend estimates are snapshots computed at execution time from versioned `AiModelPricing` rows (or positive `AI_PRICE_*` environment fallback when no active model rule is configured).
-- Organization Owners/Admins publish pricing versions and configure advisory organization/project weekly or monthly budgets in `/app/analytics`; Project Managers can configure project-scoped advisory budgets in `/app/projects/[projectId]/analytics`.
-- Publishing a new pricing version preserves all historical spend estimates unchanged, and missing provider token telemetry or missing pricing rules explicitly display unavailable states instead of `$0.00` or `0` tokens. Budget thresholds emit advisory warnings only and never charge cards or auto-block AI requests.
-
-### Verification commands
+For production verification locally:
 
 ```sh
-pnpm lint
-pnpm typecheck
-pnpm db:validate
 pnpm build
-pnpm --filter @devcollab/api test
-pnpm --filter @devcollab/worker test
 pnpm start
+pnpm start:worker
 ```
 
-With local dev servers running, `node --test apps/web/test/dev-auth.test.mjs` verifies API connectivity, route protection, and pre-hydration auth form validation.
+---
+
+## GitHub App, AI Provider & OAuth Notes
+
+- **OAuth Login (optional):** Configure `AUTH_GOOGLE_*` and/or `AUTH_GITHUB_*` in `apps/web/.env.local` with callback URLs `http://localhost:3000/api/auth/callback/{google|github}` (or your production domain).
+- **GitHub App Integration (optional):** Create a GitHub App with **Read-only** permissions for **Contents**, **Metadata**, and **Pull requests**. Set **Setup URL** to `https://<web-origin>/api/workspace/integrations/github/callback` and subscribe to **Pull request**, **Pull request review**, **Installation**, and **Installation repositories** pointing to `/api/webhooks/github`. Put `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY`, and `GITHUB_WEBHOOK_SECRET` into `apps/api/.env` (plus App ID & Private Key in `apps/worker/.env`).
+- **AI Provider (optional):** Set `AI_PROVIDER` (`openai`, `anthropic`, or `openai-compatible`), `AI_MODEL`, and `AI_API_KEY` (plus optional `AI_API_BASE_URL` / `AI_PRICE_*`) in both `apps/api/.env` and `apps/worker/.env`.
+
+---
+
+## Security Model Summary
+
+- **Sessions & BFF Boundary:** Auth.js JWT sessions verify server-side revocation rows in PostgreSQL on each request; Next.js BFF routes mint 30–45s HS256 user assertions (`devcollab-web` -> `devcollab-api`) so browsers never talk directly to internal APIs with raw identity headers.
+- **Authorization & Tenant Isolation:** Every API endpoint enforces `InternalIdentityGuard`, `OrgAccessGuard`, and `ProjectAccessGuard` against active memberships and project role assignments; write/export routes apply per-user rate limiting; unexpected errors pass through `SafeExceptionFilter` without leaking stack traces or DB URLs.
+- **Secrets & Workspace Isolation:** Explorer, Context Builder, and AI Assistant exclude `.env*`, keys/PEMs, credentials, `.gitignore` rules, and symlink escapes, and scrub detected tokens before storage or prompt construction.
+- **No Unisolated Host Shell Execution:** Sandbox checks (`SANDBOX_ENABLED`) and IDE terminals (`WORKSPACE_TERMINAL_ENABLED`) run exclusively inside hardened Docker containers (`--network=none`, `--read-only`, `--cap-drop=ALL`). When Docker is unavailable, services refuse host shell fallback cleanly.
+
+---
+
+## Testing & Verification
+
+```sh
+pnpm env:check
+pnpm db:validate
+pnpm db:check
+pnpm lint
+pnpm typecheck
+pnpm --filter @devcollab/worker test
+pnpm --filter @devcollab/api test
+pnpm build
+```
+
+For end-to-end QA flows in the browser, see [`docs/MANUAL_TESTING_GUIDE.md`](docs/MANUAL_TESTING_GUIDE.md).
+
+---
+
+## Production Deployment
+
+- **Frontend (`apps/web`):** Deploy to Vercel with Root Directory `apps/web` (preconfigured via [`apps/web/vercel.json`](apps/web/vercel.json)) and `AUTH_TRUST_HOST=true`.
+- **API (`apps/api`):** Deploy to a persistent Node/Docker host (supports `/api/health`, `/api/health/ready`, SSE streams, and webhook raw-body HMAC checks).
+- **Worker (`apps/worker`):** Deploy on Docker-capable compute with persistent block storage mounted for `WORKSPACE_ROOT_DIR` and `WORKSPACE_SNAPSHOT_DIR` plus TLS WebSocket upgrades for `/collab` and `/terminal`.
+- **Database (`packages/database`):** Managed Neon PostgreSQL (`DATABASE_URL` pooled runtime + `DIRECT_URL` migrations).
+
+Follow the complete production walkthrough in [`docs/DEPLOYMENT_CHECKLIST.md`](docs/DEPLOYMENT_CHECKLIST.md).

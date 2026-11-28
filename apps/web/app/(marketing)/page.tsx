@@ -52,7 +52,7 @@ export default async function Home() {
           <PlatformConsole />
         </section>
         <section id="features" className="frame content-section" aria-labelledby="features-title">
-          <p className="eyebrow"><span className="index-mark" /> Planned capabilities</p>
+          <p className="eyebrow"><span className="index-mark" /> Core capabilities</p>
           <h2 id="features-title" className="section-heading">A workspace built for both.</h2>
           <div className="feature-grid">{features.map(({ icon: Icon, title, body }) => (
             <article className="feature-card" key={title}><span className="icon-tile"><Icon size={23} strokeWidth={1.5} /></span><h3>{title}</h3><p>{body}</p></article>
@@ -60,7 +60,7 @@ export default async function Home() {
         </section>
         <section id="workflow" className="workflow-section" aria-labelledby="workflow-title">
           <div className="frame">
-            <p className="eyebrow"><span className="index-mark" /> Planned workflow</p>
+            <p className="eyebrow"><span className="index-mark" /> Connected workflow</p>
             <h2 id="workflow-title" className="section-heading">From task to release.</h2>
             <ol className="workflow-list">{workflow.map(({ icon: Icon, name, detail }, index) => (
               <li key={name}><div className="step-marker"><Icon size={19} /><span>0{index + 1}</span></div><h3>{name}</h3><p>{detail}</p></li>

@@ -1713,12 +1713,6 @@ tr:hover .diff-add-comment-btn,
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .spin-icon {
-    animation: none;
-  }
-}
-
 .ai-workspace-grid {
   display: grid;
   grid-template-columns: minmax(17.5rem, 21rem) minmax(22rem, 1.05fr) minmax(24rem, 1.25fr);
@@ -2627,5 +2621,45 @@ tr:hover .diff-add-comment-btn,
 @media (prefers-reduced-motion: reduce) {
   .spin-icon {
     animation: none;
+  }
+}
+
+.app-shell :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+.modal-card {
+  max-height: 90svh;
+  overflow-y: auto;
+}
+
+@media (max-width: 760px) {
+  .project-subnav {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: .35rem;
+  }
+
+  .project-subnav-link {
+    flex: 0 0 auto;
+    min-height: 2.35rem;
+  }
+
+  .analytics-filter-row,
+  .analytics-custom-form {
+    align-items: stretch;
+  }
+
+  .analytics-custom-form {
+    width: 100%;
+  }
+
+  .analytics-date-input,
+  .analytics-tz-select {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 }

@@ -12,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { RequireOrgRoles, type ScopedRequest } from "../authorization/authorization.constants";
 import { OrgAccessGuard } from "../authorization/org-access.guard";
+import { WriteRateLimitGuard } from "../common/write-rate-limit.guard";
 import { InternalIdentityGuard } from "../users/identity.guard";
 import { OrganizationsService } from "./organizations.service";
 
@@ -28,6 +29,7 @@ export class OrganizationsController {
   }
 
   @Post()
+  @UseGuards(WriteRateLimitGuard)
   async create(
     @Req() request: ScopedRequest,
     @Body() body: { name?: unknown; slug?: unknown; description?: unknown },
@@ -45,7 +47,7 @@ export class OrganizationsController {
   }
 
   @Patch(":orgId")
-  @UseGuards(OrgAccessGuard)
+  @UseGuards(OrgAccessGuard, WriteRateLimitGuard)
   @RequireOrgRoles("OWNER", "ADMIN")
   async update(
     @Req() request: ScopedRequest,
@@ -66,7 +68,7 @@ export class OrganizationsController {
   }
 
   @Post(":orgId/leave")
-  @UseGuards(OrgAccessGuard)
+  @UseGuards(OrgAccessGuard, WriteRateLimitGuard)
   async leave(@Req() request: ScopedRequest, @Param("orgId") orgId: string) {
     if (!request.userId) throw new UnauthorizedException();
     return this.organizations.leaveOrganization(request.userId, orgId);

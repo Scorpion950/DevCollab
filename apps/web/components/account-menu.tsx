@@ -55,7 +55,7 @@ export function AccountMenu({
           )}
         </span>
         <span>{name}</span>
-        <ChevronDown size={15} />
+        <ChevronDown size={15} aria-hidden="true" />
       </summary>
       <div className="account-options">
         <div className="account-options-head">

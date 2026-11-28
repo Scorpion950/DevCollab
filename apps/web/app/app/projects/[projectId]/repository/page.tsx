@@ -4,7 +4,7 @@ import type { ProjectDetailDto, ProjectRepositoryOverviewDto } from "@devcollab/
 import { Button } from "@/components/ui/button";
 import { RepositoryOverviewPanel } from "@/components/workspace/repository-overview-panel";
 import { apiUserFetch } from "@/lib/server/backend";
-import { getWorkspaceBootstrap } from "@/lib/server/dal";
+import { loadWithActiveOrg } from "@/lib/server/dal";
 
 export const dynamic = "force-dynamic";
 
@@ -15,16 +15,24 @@ export default async function ProjectRepositoryPage({
   params: Promise<{ projectId: string }>;
   searchParams: Promise<{ installationId?: string; setup?: string }>;
 }) {
-  const [ctx, { projectId }, { installationId, setup }] = await Promise.all([
-    getWorkspaceBootstrap(),
-    params,
-    searchParams,
-  ]);
+  const [{ projectId }, { installationId, setup }] = await Promise.all([params, searchParams]);
+  const { ctx, data: results } = await loadWithActiveOrg((userId, orgId) =>
+    Promise.all([
+      apiUserFetch<ProjectDetailDto>(
+        userId,
+        `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}`,
+      ),
+      apiUserFetch<ProjectRepositoryOverviewDto>(
+        userId,
+        `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}/github/repository`,
+      ),
+    ]),
+  );
   if (!ctx) return null;
 
   const { bootstrap } = ctx;
   const activeOrg = bootstrap.activeOrganization;
-  if (!activeOrg) {
+  if (!activeOrg || !results) {
     return (
       <section className="empty-panel">
         <h2>No active organization</h2>
@@ -36,16 +44,7 @@ export default async function ProjectRepositoryPage({
     );
   }
 
-  const [projRes, repoRes] = await Promise.all([
-    apiUserFetch<ProjectDetailDto>(
-      bootstrap.user.id,
-      `/organizations/${encodeURIComponent(activeOrg.id)}/projects/${encodeURIComponent(projectId)}`,
-    ),
-    apiUserFetch<ProjectRepositoryOverviewDto>(
-      bootstrap.user.id,
-      `/organizations/${encodeURIComponent(activeOrg.id)}/projects/${encodeURIComponent(projectId)}/github/repository`,
-    ),
-  ]);
+  const [projRes, repoRes] = results;
 
   if (!projRes.ok || !repoRes.ok) {
     return (

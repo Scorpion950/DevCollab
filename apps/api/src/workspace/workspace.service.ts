@@ -8,7 +8,7 @@ export class WorkspaceService {
   constructor(private readonly db: DatabaseService) {}
 
   async getBootstrap(userId: string, requestedOrgId?: string): Promise<WorkspaceBootstrap> {
-    const [user, memberships] = await Promise.all([
+    const [user, memberships, allManaged] = await Promise.all([
       this.db.prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, name: true, email: true, image: true },
@@ -29,6 +29,15 @@ export class WorkspaceService {
           },
         },
       }),
+      this.db.prisma.projectRoleAssignment.findMany({
+        where: { userId, role: "PROJECT_MANAGER" },
+        orderBy: { project: { name: "asc" } },
+        select: {
+          project: {
+            select: { id: true, name: true, key: true, slug: true, organizationId: true },
+          },
+        },
+      }),
     ]);
 
     if (!user) throw new UnauthorizedException();
@@ -39,21 +48,16 @@ export class WorkspaceService {
       organizations[0] ??
       null;
 
-    let managedProjects: ManagedProjectRef[] = [];
-    if (activeOrganization) {
-      const managed = await this.db.prisma.projectRoleAssignment.findMany({
-        where: {
-          userId,
-          role: "PROJECT_MANAGER",
-          project: { organizationId: activeOrganization.id },
-        },
-        orderBy: { project: { name: "asc" } },
-        select: {
-          project: { select: { id: true, name: true, key: true, slug: true } },
-        },
-      });
-      managedProjects = managed.map((item) => item.project);
-    }
+    const managedProjects: ManagedProjectRef[] = activeOrganization
+      ? allManaged
+          .filter((item) => item.project.organizationId === activeOrganization.id)
+          .map((item) => ({
+            id: item.project.id,
+            name: item.project.name,
+            key: item.project.key,
+            slug: item.project.slug,
+          }))
+      : [];
 
     return {
       user,

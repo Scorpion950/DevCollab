@@ -24,7 +24,7 @@ import {
   UserAvatar,
 } from "@/components/workspace/task-badges";
 import { apiUserFetch } from "@/lib/server/backend";
-import { getWorkspaceBootstrap } from "@/lib/server/dal";
+import { loadWithActiveOrg } from "@/lib/server/dal";
 
 export const dynamic = "force-dynamic";
 
@@ -33,12 +33,18 @@ export default async function ProjectDetailPage({
 }: {
   params: Promise<{ projectId: string }>;
 }) {
-  const [ctx, { projectId }] = await Promise.all([getWorkspaceBootstrap(), params]);
+  const { projectId } = await params;
+  const { ctx, data: res } = await loadWithActiveOrg((userId, orgId) =>
+    apiUserFetch<ProjectDetailDto>(
+      userId,
+      `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}`,
+    ),
+  );
   if (!ctx) return null;
 
   const { bootstrap } = ctx;
   const activeOrg = bootstrap.activeOrganization;
-  if (!activeOrg) {
+  if (!activeOrg || !res) {
     return (
       <section className="empty-panel">
         <h2>No active organization</h2>
@@ -49,11 +55,6 @@ export default async function ProjectDetailPage({
       </section>
     );
   }
-
-  const res = await apiUserFetch<ProjectDetailDto>(
-    bootstrap.user.id,
-    `/organizations/${encodeURIComponent(activeOrg.id)}/projects/${encodeURIComponent(projectId)}`,
-  );
 
   if (!res.ok) {
     return (

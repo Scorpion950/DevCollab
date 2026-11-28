@@ -27,7 +27,7 @@ export function WorkflowGuide() {
     [["Task",task.id+" · Done"],["Contributor",owner],["Merge record","Eli approved the trace ID change. The task branch was merged into main."]],
   ];
   const Icon=current.icon;
-  return <section className="console"><div className="console-bar">Workflow walkthrough <small>Planned behavior · Interactive concept</small></div><div className="guide-grid"><ol className="stage-list">{steps.map(({name},i)=><li key={name}><button aria-current={i===step?"step":undefined} data-active={step===i} onClick={()=>setStep(i)}><span>0{i+1}</span>{name}</button></li>)}</ol>
+  return <section className="console"><div className="console-bar">Workflow walkthrough <small>Interactive walkthrough · Illustrative sample data</small></div><div className="guide-grid"><ol className="stage-list">{steps.map(({name},i)=><li key={name}><button aria-current={i===step?"step":undefined} data-active={step===i} onClick={()=>setStep(i)}><span>0{i+1}</span>{name}</button></li>)}</ol>
   <div className="demo-pad"><p className="eyebrow"><Icon size={17}/>Step {step+1} of 6</p><h2>{current.name}</h2><p>{current.body}</p>
     {step===3&&<div className="switches">{["Human developer","Autonomous AI agent"].map((name,i)=><button key={name} aria-pressed={agent===Boolean(i)} onClick={()=>setAgent(Boolean(i))}>{name}</button>)}</div>}
     <dl className="record">{records[step]!.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>

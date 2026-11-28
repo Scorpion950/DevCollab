@@ -4,7 +4,7 @@ import type { ProjectTasksListResponseDto } from "@devcollab/shared";
 import { ProjectTasksWorkspace } from "@/components/workspace/project-tasks-workspace";
 import { Button } from "@/components/ui/button";
 import { apiUserFetch } from "@/lib/server/backend";
-import { getWorkspaceBootstrap } from "@/lib/server/dal";
+import { loadWithActiveOrg } from "@/lib/server/dal";
 
 export const dynamic = "force-dynamic";
 
@@ -15,16 +15,18 @@ export default async function ProjectTasksPage({
   params: Promise<{ projectId: string }>;
   searchParams: Promise<{ view?: string; task?: string }>;
 }) {
-  const [ctx, { projectId }, { view, task }] = await Promise.all([
-    getWorkspaceBootstrap(),
-    params,
-    searchParams,
-  ]);
+  const [{ projectId }, { view, task }] = await Promise.all([params, searchParams]);
+  const { ctx, data: res } = await loadWithActiveOrg((userId, orgId) =>
+    apiUserFetch<ProjectTasksListResponseDto>(
+      userId,
+      `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}/tasks`,
+    ),
+  );
   if (!ctx) return null;
 
   const { bootstrap } = ctx;
   const activeOrg = bootstrap.activeOrganization;
-  if (!activeOrg) {
+  if (!activeOrg || !res) {
     return (
       <section className="empty-panel">
         <h2>No active organization</h2>
@@ -35,11 +37,6 @@ export default async function ProjectTasksPage({
       </section>
     );
   }
-
-  const res = await apiUserFetch<ProjectTasksListResponseDto>(
-    bootstrap.user.id,
-    `/organizations/${encodeURIComponent(activeOrg.id)}/projects/${encodeURIComponent(projectId)}/tasks`,
-  );
 
   if (!res.ok) {
     return (
