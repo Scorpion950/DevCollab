@@ -308,22 +308,50 @@ export async function setProjectArchiveAction(
   return { success: archive ? "Project archived." : "Project restored." };
 }
 
+export async function updateProjectAiPolicyAction(
+  orgId: string,
+  projectId: string,
+  allowDeveloperAiRuns: boolean,
+): Promise<ActionState> {
+  const session = await getAuthenticatedSession();
+  const res = await apiUserFetch<ProjectDetailDto>(
+    session.user!.id!,
+    `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}`,
+    { method: "PATCH", body: { allowDeveloperAiRuns } },
+  );
+  if (!res.ok) return { error: res.message };
+  revalidatePath("/app", "layout");
+  return {
+    success: allowDeveloperAiRuns
+      ? "Project-wide AI agent execution enabled for assigned developers."
+      : "Project-wide AI agent execution restricted to managers and granted developers.",
+  };
+}
+
 export async function assignProjectRoleAction(
   orgId: string,
   projectId: string,
   userId: string,
   role: ProjectRole,
+  canRunAi?: boolean,
 ): Promise<ActionState> {
   const session = await getAuthenticatedSession();
   const res = await apiUserFetch<ProjectDetailDto>(
     session.user!.id!,
     `/organizations/${encodeURIComponent(orgId)}/projects/${encodeURIComponent(projectId)}/roles`,
-    { method: "PUT", body: { userId, role } },
+    {
+      method: "PUT",
+      body: {
+        userId,
+        role,
+        ...(typeof canRunAi === "boolean" ? { canRunAi } : {}),
+      },
+    },
   );
   if (!res.ok) return { error: res.message };
   revalidatePath("/app", "layout");
   return {
-    success: `Assigned ${role === "PROJECT_MANAGER" ? "Project Manager" : "Developer"} role.`,
+    success: `Updated ${role === "PROJECT_MANAGER" ? "Project Manager" : "Developer"} assignment.`,
   };
 }
 

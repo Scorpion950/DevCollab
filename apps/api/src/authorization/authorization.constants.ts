@@ -7,7 +7,7 @@ export const PROJECT_MODE_KEY = "devcollab:projectMode";
 
 export const RequireOrgRoles = (...roles: OrganizationRole[]) => SetMetadata(ORG_ROLES_KEY, roles);
 
-export type ProjectAccessMode = "view" | "manage";
+export type ProjectAccessMode = "view" | "manage" | "ai";
 export const RequireProjectAccess = (mode: ProjectAccessMode) => SetMetadata(PROJECT_MODE_KEY, mode);
 
 export interface OrgContext {
@@ -35,6 +35,7 @@ export interface ProjectContext {
     slug: string;
     description: string | null;
     status: "ACTIVE" | "ARCHIVED";
+    allowDeveloperAiRuns: boolean;
     createdById: string | null;
     archivedAt: Date | null;
     createdAt: Date;
@@ -42,6 +43,7 @@ export interface ProjectContext {
   };
   projectRole: ProjectRole | null;
   canManage: boolean;
+  canRunAi: boolean;
 }
 
 export interface ScopedRequest extends IdentityRequest {

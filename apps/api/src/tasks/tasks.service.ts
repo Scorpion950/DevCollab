@@ -29,6 +29,7 @@ import {
   toTaskCommentDto,
   toTaskSummaryDto,
 } from "../common/mappers";
+import { toAgentRunSummaryDto } from "../ai/ai.mappers";
 import {
   normalizeTaskLabels,
   optionalDueDate,
@@ -389,8 +390,9 @@ export class TasksService {
     taskId: string,
     actorUserId: string,
     canManageProject: boolean,
+    canRunAi = false,
   ): Promise<TaskDetailDto> {
-    const [task, linkedPrRows] = await Promise.all([
+    const [task, linkedPrRows, latestRunRow] = await Promise.all([
       this.db.prisma.task.findFirst({
         where: { id: taskId, projectId, organizationId: orgId },
         include: {
@@ -427,6 +429,16 @@ export class TasksService {
             },
           })
         : Promise.resolve([]),
+      this.db.prisma.agentRun
+        ? this.db.prisma.agentRun.findFirst({
+            where: { organizationId: orgId, projectId, taskId },
+            orderBy: [{ createdAt: "desc" }],
+            include: {
+              triggeredBy: { select: USER_SELECT },
+              usageRecords: true,
+            },
+          })
+        : Promise.resolve(null),
     ]);
 
     if (!task) {
@@ -443,6 +455,8 @@ export class TasksService {
       projectKey: task.project.key,
       canEditTask: isEditable,
       canArchiveTask: canManageProject && task.project.status === "ACTIVE",
+      canRunAi,
+      latestAgentRun: latestRunRow ? toAgentRunSummaryDto(latestRunRow) : null,
       comments: task.comments.map((c) => toTaskCommentDto(c, actorUserId, canManageProject)),
       activities: task.activities.map(toTaskActivityDto),
       linkedPullRequests: linkedPrRows.map(toLinkedPullRequestRefDto),

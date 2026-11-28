@@ -1,6 +1,17 @@
-import { sign } from "node:crypto";
 import { Injectable } from "@nestjs/common";
+import {
+  createGitHubAppJwt,
+  decodeGitHubFileContent,
+  DEFAULT_GITHUB_BINARY_TRANSPORT,
+  GitHubSourceApiError,
+  type GitHubBinaryTransport,
+  type GitHubBranchPayload,
+  type GitHubFileContentPayload,
+  type GitHubTreePayload,
+} from "@devcollab/ai-core";
 import { GitHubConfigService } from "./github-config.service";
+
+export type { GitHubBinaryTransport, GitHubBranchPayload, GitHubFileContentPayload, GitHubTreePayload };
 
 export interface GitHubInstallationPayload {
   id: number;
@@ -115,23 +126,19 @@ const DEFAULT_TRANSPORT: GitHubTransport = {
   },
 };
 
-function toBase64Url(input: Buffer | string): string {
-  return Buffer.from(input)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
-
 @Injectable()
 export class GitHubAppClientService {
   private readonly tokenCache = new Map<string, { token: string; expiresAtMs: number }>();
   private transport: GitHubTransport = DEFAULT_TRANSPORT;
+  private binaryTransport: GitHubBinaryTransport = DEFAULT_GITHUB_BINARY_TRANSPORT;
 
   constructor(private readonly config: GitHubConfigService) {}
 
-  setTransportForTesting(transport: GitHubTransport) {
+  setTransportForTesting(transport: GitHubTransport, binaryTransport?: GitHubBinaryTransport) {
     this.transport = transport;
+    if (binaryTransport) {
+      this.binaryTransport = binaryTransport;
+    }
   }
 
   clearTokenCache() {
@@ -144,18 +151,7 @@ export class GitHubAppClientService {
 
   createAppJwt(): string {
     const creds = this.config.requireAppCredentials();
-    const now = Math.floor(Date.now() / 1000);
-    const header = toBase64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-    const payload = toBase64Url(
-      JSON.stringify({
-        iat: now - 60,
-        exp: now + 540,
-        iss: creds.appId,
-      }),
-    );
-    const signingInput = `${header}.${payload}`;
-    const signature = sign("RSA-SHA256", Buffer.from(signingInput), creds.privateKey);
-    return `${signingInput}.${toBase64Url(signature)}`;
+    return createGitHubAppJwt(creds.appId, creds.privateKey);
   }
 
   private async requestGitHub<T>(
@@ -338,5 +334,93 @@ export class GitHubAppClientService {
       githubInstallationId,
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${prNumber}/files?per_page=${perPage}&page=${page}`,
     );
+  }
+
+  async getBranch(
+    githubInstallationId: string,
+    owner: string,
+    repo: string,
+    branch: string,
+  ): Promise<GitHubBranchPayload> {
+    return this.requestAsInstallation(
+      githubInstallationId,
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches/${encodeURIComponent(branch)}`,
+    );
+  }
+
+  async getTree(
+    githubInstallationId: string,
+    owner: string,
+    repo: string,
+    treeSha: string,
+    recursive = true,
+  ): Promise<GitHubTreePayload> {
+    return this.requestAsInstallation(
+      githubInstallationId,
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(treeSha)}${recursive ? "?recursive=1" : ""}`,
+    );
+  }
+
+  async getFileContent(
+    githubInstallationId: string,
+    owner: string,
+    repo: string,
+    filePath: string,
+    ref: string,
+  ): Promise<{ path: string; size: number; encoding: string; contentText: string | null; isBinary: boolean }> {
+    const encodedPath = filePath
+      .split("/")
+      .filter(Boolean)
+      .map((part) => encodeURIComponent(part))
+      .join("/");
+    const payload = await this.requestAsInstallation<GitHubFileContentPayload>(
+      githubInstallationId,
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}?ref=${encodeURIComponent(ref)}`,
+    );
+    return decodeGitHubFileContent(payload, filePath);
+  }
+
+  async downloadRepositoryTarball(
+    githubInstallationId: string,
+    owner: string,
+    repo: string,
+    ref: string,
+    maxBytes = 25 * 1024 * 1024,
+  ): Promise<Buffer> {
+    const token = await this.getInstallationToken(githubInstallationId);
+    const base = this.config.getApiBaseUrl();
+    const url = `${base}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tarball/${encodeURIComponent(ref)}`;
+    const allowedOrigins = Array.from(
+      new Set([new URL(base).origin, "https://codeload.github.com"]),
+    );
+    try {
+      return await this.binaryTransport.download(
+        url,
+        {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "User-Agent": "DevCollab-GitHubApp",
+        },
+        allowedOrigins,
+        maxBytes,
+      );
+    } catch (error) {
+      if (error instanceof GitHubSourceApiError) {
+        if (error.status === 401 || error.revokedOrNotFound) {
+          this.invalidateInstallationToken(githubInstallationId);
+        }
+        throw new GitHubApiError(
+          error.message,
+          error.status,
+          error.rateLimited,
+          error.revokedOrNotFound,
+        );
+      }
+      if (error instanceof GitHubApiError && (error.status === 401 || error.revokedOrNotFound)) {
+        this.invalidateInstallationToken(githubInstallationId);
+      }
+      throw error;
+    }
   }
 }

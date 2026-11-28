@@ -108,6 +108,7 @@ export class ProjectTasksController {
       taskId,
       request.userId,
       request.projectContext.canManage,
+      request.projectContext.canRunAi,
     );
   }
 

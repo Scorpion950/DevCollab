@@ -11,3 +11,5 @@ packages/database/src/generated/
 *.log
 .DS_Store
 next-env.d.ts
+.devcollab-workspaces/
+apps/web/public/monaco/

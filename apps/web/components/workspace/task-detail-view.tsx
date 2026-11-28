@@ -5,8 +5,10 @@ import Link from "next/link";
 import {
   Archive,
   ArchiveRestore,
+  Bot,
   Check,
   CircleAlert,
+  Code2,
   Copy,
   ExternalLink,
   GitPullRequest,
@@ -15,6 +17,7 @@ import {
   MessageSquare,
   Pencil,
   Send,
+  Sparkles,
   Trash2,
   Unlink,
   X,
@@ -29,6 +32,7 @@ import type {
   TaskStatus,
 } from "@devcollab/shared";
 import { Button } from "@/components/ui/button";
+import { AgentRunStatusBadge, formatUsd } from "./ai-badges";
 import { ConfirmDialog } from "./confirm-dialog";
 import { PullRequestStateBadge } from "./github-badges";
 import {
@@ -409,6 +413,21 @@ export function TaskDetailView({
         </div>
 
         <div className="inline-actions">
+          <Button asChild variant="secondary" size="compact">
+            <Link
+              href={`/app/projects/${encodeURIComponent(projectId)}/ide?taskId=${encodeURIComponent(task.id)}`}
+            >
+              <Code2 size={14} /> Open IDE
+            </Link>
+          </Button>
+          <Button asChild size="compact" variant={task.canRunAi && !task.archivedAt ? "primary" : "secondary"}>
+            <Link
+              href={`/app/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(task.id)}/agent`}
+            >
+              <Sparkles size={14} />{" "}
+              {task.latestAgentRun ? "AI Workspace" : task.canRunAi && !task.archivedAt ? "Run with AI" : "AI Runs"}
+            </Link>
+          </Button>
           <Button type="button" variant="secondary" size="compact" onClick={copyDirectLink}>
             {copiedLink ? <Check size={14} /> : <Copy size={14} />}
             {copiedLink ? "Copied" : "Copy link"}
@@ -703,6 +722,51 @@ export function TaskDetailView({
                   </div>
                 ))}
               </div>
+            )}
+          </section>
+
+          <section className="app-card" aria-labelledby="task-ai-agent-heading">
+            <div className="app-card-header">
+              <h2 id="task-ai-agent-heading" className="inline-actions">
+                <Bot size={17} /> AI Coding Agent
+              </h2>
+              <Button asChild variant="secondary" size="compact">
+                <Link
+                  href={`/app/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(task.id)}/agent`}
+                >
+                  <Sparkles size={13} />{" "}
+                  {task.latestAgentRun ? "Open AI Workspace" : "Run with AI"}
+                </Link>
+              </Button>
+            </div>
+
+            {task.latestAgentRun ? (
+              <div className="overview-task-row">
+                <div className="inline-actions" style={{ gap: ".55rem", flexWrap: "wrap" }}>
+                  <AgentRunStatusBadge status={task.latestAgentRun.status} />
+                  <span className="field-hint">
+                    {task.latestAgentRun.repoFullName} ·{" "}
+                    <code>{task.latestAgentRun.baseBranch}</code>
+                  </span>
+                </div>
+                <div className="inline-actions" style={{ gap: ".5rem" }}>
+                  <span className="field-hint" style={{ fontFamily: "var(--mono-font)", fontSize: ".76rem" }}>
+                    {task.latestAgentRun.usageTotals.totalTokens.toLocaleString()} tok ·{" "}
+                    {formatUsd(task.latestAgentRun.usageTotals.estimatedCostUsd)}
+                  </span>
+                  <Link
+                    href={`/app/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(task.id)}/agent?runId=${encodeURIComponent(task.latestAgentRun.id)}`}
+                    className="text-action-link"
+                  >
+                    Inspect run
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <p className="field-hint">
+                Generate a structured implementation plan against the connected repository, approve
+                execution, inspect validated diffs, and accept or request revisions inside DevCollab.
+              </p>
             )}
           </section>
 

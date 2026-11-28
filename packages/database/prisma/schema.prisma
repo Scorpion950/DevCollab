@@ -36,6 +36,23 @@ model User {
   resolvedPrComments   PullRequestReviewComment[] @relation("PRCommentResolver")
   prInternalReviews    PullRequestInternalReview[]
   linkedTaskPrs        TaskPullRequestLink[]    @relation("TaskPrLinker")
+  triggeredAgentRuns   AgentRun[]               @relation("AgentRunTrigger")
+  decidedAgentPlans    AgentPlan[]              @relation("AgentPlanDecider")
+  reviewedAgentProposals AgentProposal[]        @relation("AgentProposalReviewer")
+  agentRunEvents       AgentRunEvent[]          @relation("AgentEventActor")
+  ownedWorkspaces      DevWorkspace[]           @relation("WorkspaceOwner")
+  workspaceSnapshots   WorkspaceSnapshot[]      @relation("WorkspaceSnapshotCreator")
+  workspaceEvents      WorkspaceEvent[]         @relation("WorkspaceEventActor")
+  terminalSessions     WorkspaceTerminalSession[] @relation("WorkspaceTerminalUser")
+  createdCollabSessions   CollabSession[]         @relation("CollabSessionCreator")
+  closedCollabSessions    CollabSession[]         @relation("CollabSessionCloser")
+  collabParticipations    CollabParticipant[]     @relation("CollabParticipantUser")
+  collabInvitationsSent   CollabParticipant[]     @relation("CollabParticipantInviter")
+  collabMessages          CollabMessage[]         @relation("CollabMessageAuthor")
+  collabDocumentsEdited   CollabDocument[]        @relation("CollabDocumentEditor")
+  aiConversations         AiConversation[]        @relation("AiConversationOwner")
+  aiMessages              AiMessage[]             @relation("AiMessageAuthor")
+  aiAssistantUsageRecords AiAssistantUsageRecord[] @relation("AiAssistantUsageUser")
 }
 model Account {
   userId String
@@ -119,6 +136,16 @@ model Organization {
   prReviewComments    PullRequestReviewComment[]
   prInternalReviews   PullRequestInternalReview[]
   taskPrLinks         TaskPullRequestLink[]
+  agentRuns           AgentRun[]
+  agentRunEvents      AgentRunEvent[]
+  agentUsageRecords   AgentUsageRecord[]
+  devWorkspaces       DevWorkspace[]
+  workspaceEvents     WorkspaceEvent[]
+  terminalSessions    WorkspaceTerminalSession[]
+  collabSessions      CollabSession[]
+  collabMessages      CollabMessage[]
+  aiConversations     AiConversation[]
+  aiAssistantUsageRecords AiAssistantUsageRecord[]
 }
 
 model OrganizationMembership {
@@ -168,24 +195,35 @@ model Project {
   key             String
   slug            String
   description     String?                 @db.Text
-  status          ProjectStatus           @default(ACTIVE)
-  nextTaskNumber  Int                     @default(1)
-  createdById     String?
-  archivedAt      DateTime?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  organization    Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy       User?                   @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  roleAssignments ProjectRoleAssignment[]
-  auditLogs       OrganizationAuditLog[]
-  tasks           Task[]
-  taskActivities  TaskActivity[]
-  githubInstallStates GitHubInstallSession[]
-  repositories    ProjectRepository[]
-  pullRequests    PullRequest[]
-  prReviewComments PullRequestReviewComment[]
-  prInternalReviews PullRequestInternalReview[]
-  taskPrLinks     TaskPullRequestLink[]
+  status                ProjectStatus           @default(ACTIVE)
+  nextTaskNumber        Int                     @default(1)
+  allowDeveloperAiRuns  Boolean                 @default(false)
+  createdById           String?
+  archivedAt            DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy             User?                   @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  roleAssignments       ProjectRoleAssignment[]
+  auditLogs             OrganizationAuditLog[]
+  tasks                 Task[]
+  taskActivities        TaskActivity[]
+  githubInstallStates   GitHubInstallSession[]
+  repositories          ProjectRepository[]
+  pullRequests          PullRequest[]
+  prReviewComments      PullRequestReviewComment[]
+  prInternalReviews     PullRequestInternalReview[]
+  taskPrLinks           TaskPullRequestLink[]
+  agentRuns             AgentRun[]
+  agentRunEvents        AgentRunEvent[]
+  agentUsageRecords     AgentUsageRecord[]
+  devWorkspaces         DevWorkspace[]
+  workspaceEvents       WorkspaceEvent[]
+  terminalSessions      WorkspaceTerminalSession[]
+  collabSessions        CollabSession[]
+  collabMessages        CollabMessage[]
+  aiConversations       AiConversation[]
+  aiAssistantUsageRecords AiAssistantUsageRecord[]
 
   @@unique([organizationId, key])
   @@unique([organizationId, slug])
@@ -197,6 +235,7 @@ model ProjectRoleAssignment {
   projectId    String
   userId       String
   role         ProjectRole @default(DEVELOPER)
+  canRunAi     Boolean     @default(false)
   assignedById String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -256,6 +295,16 @@ enum TaskActivityType {
   TASK_RESTORED
   PR_LINKED
   PR_UNLINKED
+  AI_RUN_STARTED
+  AI_PLAN_APPROVED
+  AI_PLAN_REJECTED
+  AI_PROPOSAL_READY
+  AI_PROPOSAL_ACCEPTED
+  AI_PROPOSAL_REJECTED
+  WORKSPACE_AI_PATCH_APPLIED
+  COLLAB_SESSION_STARTED
+  COLLAB_SESSION_CLOSED
+  AI_ASSISTANT_PATCH_APPLIED
 }
 
 enum GitHubInstallationStatus {
@@ -318,8 +367,12 @@ model Task {
   assignee       User?          @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   creator        User?          @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: SetNull)
   comments       TaskComment[]
-  activities     TaskActivity[]
+  activities       TaskActivity[]
   pullRequestLinks TaskPullRequestLink[]
+  agentRuns        AgentRun[]
+  devWorkspaces    DevWorkspace[]
+  collabSessions   CollabSession[]
+  aiConversations  AiConversation[]
 
   @@unique([projectId, sequenceNumber])
   @@unique([projectId, identifier])
@@ -436,6 +489,8 @@ model ProjectRepository {
   installation   GitHubAppInstallation      @relation(fields: [installationId], references: [id], onDelete: Cascade)
   connectedBy    User?                      @relation("RepoConnector", fields: [connectedById], references: [id], onDelete: SetNull)
   pullRequests   PullRequest[]
+  agentRuns      AgentRun[]
+  devWorkspaces  DevWorkspace[]
 
   @@unique([projectId, activeLock])
   @@index([organizationId, projectId, status])
@@ -562,4 +617,615 @@ model GitHubWebhookDelivery {
   processedAt          DateTime?
 
   @@index([receivedAt])
+}
+
+enum AgentRunStatus {
+  QUEUED
+  PLANNING
+  AWAITING_APPROVAL
+  RUNNING
+  AWAITING_REVIEW
+  COMPLETED
+  FAILED
+  REJECTED
+  CANCELLED
+}
+
+enum AgentPlanStatus {
+  PENDING
+  SUPERSEDED
+  APPROVED
+  REJECTED
+}
+
+enum AgentProposalStatus {
+  PENDING_REVIEW
+  REVISION_REQUESTED
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+}
+
+enum AgentTestRunStatus {
+  PENDING
+  RUNNING
+  PASSED
+  FAILED
+  SKIPPED
+  UNAVAILABLE
+}
+
+enum AgentRunEventType {
+  RUN_QUEUED
+  CONTEXT_COLLECTED
+  PLAN_GENERATED
+  PLAN_APPROVED
+  PLAN_REJECTED
+  PLAN_REVISION_REQUESTED
+  EXECUTION_CLAIMED
+  PATCH_VALIDATED
+  PATCH_REJECTED
+  REVIEW_GENERATED
+  TESTS_EXECUTED
+  TESTS_UNAVAILABLE
+  PROPOSAL_CREATED
+  PROPOSAL_REVISION_REQUESTED
+  PROPOSAL_ACCEPTED
+  PROPOSAL_REJECTED
+  RUN_CANCELLED
+  RUN_FAILED
+}
+
+enum AgentStageRole {
+  PLANNER
+  IMPLEMENTER
+  REVIEWER
+}
+
+model AgentProfile {
+  id           String         @id @default(cuid())
+  key          String         @unique
+  name         String
+  role         AgentStageRole
+  description  String
+  systemPrompt String         @db.Text
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model AgentRun {
+  id                  String              @id @default(cuid())
+  organizationId      String
+  projectId           String
+  taskId              String
+  projectRepositoryId String?
+  triggeredById       String?
+  status              AgentRunStatus      @default(QUEUED)
+  requestedPhase      String              @default("PLAN")
+  currentStage        String?
+  idempotencyKey      String?
+  repoFullName        String
+  baseBranch          String
+  baseCommitSha       String?
+  taskSnapshotTitle   String
+  taskSnapshotHash    String
+  userInstructions    String?             @db.Text
+  provider            String
+  model               String
+  activePlanId        String?
+  activeProposalId    String?
+  workerId            String?
+  leaseExpiresAt      DateTime?
+  attemptCount        Int                 @default(0)
+  maxAttempts         Int                 @default(2)
+  cancelRequestedAt   DateTime?
+  errorCode           String?
+  errorMessage        String?             @db.Text
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project             Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task                Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  projectRepository   ProjectRepository?  @relation(fields: [projectRepositoryId], references: [id], onDelete: SetNull)
+  triggeredBy         User?               @relation("AgentRunTrigger", fields: [triggeredById], references: [id], onDelete: SetNull)
+  plans               AgentPlan[]
+  proposals           AgentProposal[]
+  testRuns            AgentTestRun[]
+  events              AgentRunEvent[]
+  usageRecords        AgentUsageRecord[]
+
+  @@unique([projectId, idempotencyKey])
+  @@index([status, leaseExpiresAt, createdAt])
+  @@index([projectId, taskId, createdAt])
+  @@index([organizationId, createdAt])
+}
+
+model AgentRunEvent {
+  id             String            @id @default(cuid())
+  runId          String
+  organizationId String
+  projectId      String
+  actorId        String?
+  eventType      AgentRunEventType
+  statusFrom     AgentRunStatus?
+  statusTo       AgentRunStatus?
+  message        String
+  metadata       Json?
+  createdAt      DateTime          @default(now())
+  run            AgentRun          @relation(fields: [runId], references: [id], onDelete: Cascade)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor          User?             @relation("AgentEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([runId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model AgentPlan {
+  id               String          @id @default(cuid())
+  runId            String
+  version          Int
+  status           AgentPlanStatus @default(PENDING)
+  summary          String          @db.Text
+  steps            Json
+  targetFiles      String[]
+  risks            String[]
+  suggestedChecks  String[]
+  contextSummary   Json
+  revisionFeedback String?         @db.Text
+  decidedById      String?
+  decidedAt        DateTime?
+  decisionNote     String?         @db.Text
+  createdAt        DateTime        @default(now())
+  run              AgentRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  decidedBy        User?           @relation("AgentPlanDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  proposals        AgentProposal[]
+
+  @@unique([runId, version])
+  @@index([runId, createdAt])
+}
+
+model AgentProposal {
+  id                String              @id @default(cuid())
+  runId             String
+  planId            String
+  version           Int
+  status            AgentProposalStatus @default(PENDING_REVIEW)
+  summary           String              @db.Text
+  reviewSummary     String              @db.Text
+  reviewFindings    Json
+  changedFiles      Json
+  rawPatch          String              @db.Text
+  filesChangedCount Int                 @default(0)
+  additionsCount    Int                 @default(0)
+  deletionsCount    Int                 @default(0)
+  baseCommitSha     String
+  revisionFeedback  String?             @db.Text
+  reviewedById      String?
+  reviewedAt        DateTime?
+  reviewNote        String?             @db.Text
+  createdAt         DateTime            @default(now())
+  run               AgentRun            @relation(fields: [runId], references: [id], onDelete: Cascade)
+  plan              AgentPlan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  reviewedBy        User?               @relation("AgentProposalReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  testRuns          AgentTestRun[]
+
+  @@unique([runId, version])
+  @@index([runId, createdAt])
+}
+
+model AgentTestRun {
+  id            String             @id @default(cuid())
+  runId         String
+  proposalId    String?
+  status        AgentTestRunStatus
+  command       String?
+  exitCode      Int?
+  durationMs    Int?
+  stdoutExcerpt String?            @db.Text
+  stderrExcerpt String?            @db.Text
+  explanation   String             @db.Text
+  sandboxed     Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  completedAt   DateTime?
+  run           AgentRun           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  proposal      AgentProposal?     @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+
+  @@index([runId, createdAt])
+}
+
+model AgentUsageRecord {
+  id               String         @id @default(cuid())
+  runId            String
+  organizationId   String
+  projectId        String
+  stageRole        AgentStageRole
+  provider         String
+  model            String
+  inputTokens      Int            @default(0)
+  outputTokens     Int            @default(0)
+  totalTokens      Int            @default(0)
+  estimatedCostUsd Decimal        @db.Decimal(12, 6)
+  latencyMs        Int            @default(0)
+  createdAt        DateTime       @default(now())
+  run              AgentRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([runId, createdAt])
+}
+
+enum DevWorkspaceStatus {
+  CREATING
+  READY
+  ACTIVE
+  SUSPENDED
+  STOPPED
+  FAILED
+  EXPIRED
+}
+
+enum WorkspaceStorageMode {
+  EPHEMERAL
+  LOCAL_VOLUME
+  DURABLE
+}
+
+enum WorkspaceSnapshotStatus {
+  AVAILABLE
+  RESTORED
+  EXPIRED
+  MISSING
+}
+
+enum WorkspaceEventType {
+  WORKSPACE_CREATED
+  REPOSITORY_INITIALIZED
+  WORKSPACE_RESUMED
+  WORKSPACE_SUSPENDED
+  WORKSPACE_STOPPED
+  WORKSPACE_DELETED
+  WORKSPACE_FAILED
+  SNAPSHOT_CREATED
+  SNAPSHOT_RESTORED
+  FILE_SAVED
+  FILE_CREATED
+  FILE_RENAMED
+  FILE_DELETED
+  GIT_STAGE_CHANGED
+  GIT_COMMIT_CREATED
+  GIT_BRANCH_SWITCHED
+  AI_PATCH_APPLIED
+  TERMINAL_SESSION_STARTED
+  TERMINAL_SESSION_ENDED
+  TERMINAL_REJECTED
+  COLLAB_SESSION_STARTED
+  COLLAB_SESSION_CLOSED
+  COLLAB_PARTICIPANT_JOINED
+  COLLAB_PARTICIPANT_REVOKED
+  COLLAB_FILE_FLUSHED
+  AI_ASSISTANT_PATCH_APPLIED
+}
+
+enum WorkspaceTerminalSessionStatus {
+  ACTIVE
+  ENDED
+  REJECTED
+}
+
+model DevWorkspace {
+  id                  String                     @id @default(cuid())
+  organizationId      String
+  projectId           String
+  projectRepositoryId String?
+  ownerId             String
+  taskId              String?
+  name                String
+  status              DevWorkspaceStatus         @default(CREATING)
+  storageMode         WorkspaceStorageMode       @default(EPHEMERAL)
+  storageWarning      String?                    @db.Text
+  repoFullName        String
+  baseBranch          String
+  baseCommitSha       String?
+  currentBranch       String?
+  lastCommitSha       String?
+  workspacePathKey    String                     @unique
+  dirtyFileCount      Int                        @default(0)
+  workerId            String?
+  errorCode           String?
+  errorMessage        String?                    @db.Text
+  lastActiveAt        DateTime                   @default(now())
+  suspendedAt         DateTime?
+  stoppedAt           DateTime?
+  expiresAt           DateTime?
+  deletedAt           DateTime?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project             Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectRepository   ProjectRepository?         @relation(fields: [projectRepositoryId], references: [id], onDelete: SetNull)
+  owner               User                       @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  task                Task?                      @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  snapshots           WorkspaceSnapshot[]
+  events              WorkspaceEvent[]
+  terminalSessions    WorkspaceTerminalSession[]
+  collabSessions      CollabSession[]
+  aiConversations     AiConversation[]
+
+  @@index([organizationId, projectId, status, deletedAt])
+  @@index([ownerId, status, deletedAt])
+  @@index([expiresAt, status])
+}
+
+model WorkspaceSnapshot {
+  id                 String                  @id @default(cuid())
+  workspaceId        String
+  baseCommitSha      String
+  branchName         String
+  status             WorkspaceSnapshotStatus @default(AVAILABLE)
+  storageKey         String
+  sizeBytes          Int                     @default(0)
+  checksumSha256     String
+  trackedFileCount   Int                     @default(0)
+  untrackedFileCount Int                     @default(0)
+  createdById        String?
+  createdAt          DateTime                @default(now())
+  restoredAt         DateTime?
+  workspace          DevWorkspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy          User?                   @relation("WorkspaceSnapshotCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+}
+
+model WorkspaceEvent {
+  id             String             @id @default(cuid())
+  workspaceId    String
+  organizationId String
+  projectId      String
+  actorId        String?
+  eventType      WorkspaceEventType
+  message        String
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+  workspace      DevWorkspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor          User?              @relation("WorkspaceEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model WorkspaceTerminalSession {
+  id             String                         @id @default(cuid())
+  workspaceId    String
+  organizationId String
+  projectId      String
+  userId         String
+  status         WorkspaceTerminalSessionStatus @default(ACTIVE)
+  sandboxed      Boolean                        @default(false)
+  reason         String?
+  exitCode       Int?
+  startedAt      DateTime                       @default(now())
+  endedAt        DateTime?
+  workspace      DevWorkspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  organization   Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project                        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user           User                           @relation("WorkspaceTerminalUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status, startedAt])
+}
+
+enum CollabSessionStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum CollabRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum CollabParticipantStatus {
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum AiInlineActionKind {
+  CHAT
+  EXPLAIN
+  IMPROVE
+  FIND_BUGS
+  GENERATE_TESTS
+}
+
+enum AiMessageStatus {
+  STREAMING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+model CollabSession {
+  id             String              @id @default(cuid())
+  organizationId String
+  projectId      String
+  workspaceId    String
+  taskId         String?
+  createdById    String
+  closedById     String?
+  title          String
+  status         CollabSessionStatus @default(ACTIVE)
+  activeFilePath String?
+  lastActivityAt DateTime            @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspace      DevWorkspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task           Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdBy      User                @relation("CollabSessionCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  closedBy       User?               @relation("CollabSessionCloser", fields: [closedById], references: [id], onDelete: SetNull)
+  participants   CollabParticipant[]
+  documents      CollabDocument[]
+  messages       CollabMessage[]
+  aiConversations AiConversation[]
+
+  @@index([organizationId, projectId, status, updatedAt])
+  @@index([workspaceId, status])
+}
+
+model CollabParticipant {
+  id            String                  @id @default(cuid())
+  sessionId     String
+  userId        String
+  invitedById   String?
+  role          CollabRole              @default(EDITOR)
+  status        CollabParticipantStatus @default(ACTIVE)
+  colorHex      String                  @default("#3b82f6")
+  revokedReason String?
+  joinedAt      DateTime                @default(now())
+  leftAt        DateTime?
+  revokedAt     DateTime?
+  lastSeenAt    DateTime                @default(now())
+  session       CollabSession           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user          User                    @relation("CollabParticipantUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy     User?                   @relation("CollabParticipantInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, userId])
+  @@index([sessionId, status])
+  @@index([userId, status])
+}
+
+model CollabDocument {
+  id               String        @id @default(cuid())
+  sessionId        String
+  filePath         String
+  docKey           String
+  storageKey       String
+  versionSeq       Int           @default(1)
+  contentSha256    String
+  lastModifiedById String?
+  deletedAt        DateTime?
+  lastSavedAt      DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  session          CollabSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  lastModifiedBy   User?         @relation("CollabDocumentEditor", fields: [lastModifiedById], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, filePath])
+  @@unique([sessionId, docKey])
+  @@index([sessionId, deletedAt, updatedAt])
+}
+
+model CollabMessage {
+  id             String        @id @default(cuid())
+  sessionId      String
+  organizationId String
+  projectId      String
+  authorId       String?
+  body           String        @db.Text
+  filePath       String?
+  lineNumber     Int?
+  createdAt      DateTime      @default(now())
+  session        CollabSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author         User?         @relation("CollabMessageAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId, createdAt])
+}
+
+model AiConversation {
+  id                  String                   @id @default(cuid())
+  organizationId      String
+  projectId           String
+  userId              String
+  workspaceId         String?
+  taskId              String?
+  collabSessionId     String?
+  title               String
+  isSharedWithSession Boolean                  @default(false)
+  lastActiveFile      String?
+  archivedAt          DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project             Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user                User                     @relation("AiConversationOwner", fields: [userId], references: [id], onDelete: Cascade)
+  workspace           DevWorkspace?            @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  task                Task?                    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  collabSession       CollabSession?           @relation(fields: [collabSessionId], references: [id], onDelete: SetNull)
+  messages            AiMessage[]
+  usageRecords        AiAssistantUsageRecord[]
+
+  @@index([organizationId, projectId, userId, updatedAt])
+  @@index([collabSessionId, isSharedWithSession])
+}
+
+model AiMessage {
+  id              String                   @id @default(cuid())
+  conversationId  String
+  authorId        String?
+  role            AiMessageRole
+  actionKind      AiInlineActionKind       @default(CHAT)
+  status          AiMessageStatus          @default(COMPLETED)
+  content         String                   @db.Text
+  errorMessage    String?                  @db.Text
+  attachedContext Json?
+  citations       Json?
+  proposalJson    Json?
+  provider        String?
+  model           String?
+  inputTokens     Int                      @default(0)
+  outputTokens    Int                      @default(0)
+  latencyMs       Int                      @default(0)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  conversation    AiConversation           @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author          User?                    @relation("AiMessageAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  usageRecords    AiAssistantUsageRecord[]
+
+  @@index([conversationId, createdAt])
+}
+
+model AiAssistantUsageRecord {
+  id               String             @id @default(cuid())
+  conversationId   String
+  messageId        String?
+  organizationId   String
+  projectId        String
+  userId           String?
+  actionKind       AiInlineActionKind @default(CHAT)
+  provider         String
+  model            String
+  inputTokens      Int                @default(0)
+  outputTokens     Int                @default(0)
+  totalTokens      Int                @default(0)
+  estimatedCostUsd Decimal            @db.Decimal(12, 6)
+  latencyMs        Int                @default(0)
+  createdAt        DateTime           @default(now())
+  conversation     AiConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message          AiMessage?         @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project          Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user             User?              @relation("AiAssistantUsageUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([conversationId, createdAt])
 }

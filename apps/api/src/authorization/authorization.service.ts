@@ -114,6 +114,7 @@ export class AuthorizationService {
           slug: true,
           description: true,
           status: true,
+          allowDeveloperAiRuns: true,
           createdById: true,
           archivedAt: true,
           createdAt: true,
@@ -122,7 +123,7 @@ export class AuthorizationService {
       }),
       this.db.prisma.projectRoleAssignment.findUnique({
         where: { projectId_userId: { projectId, userId } },
-        select: { role: true },
+        select: { role: true, canRunAi: true },
       }),
     ]);
 
@@ -136,9 +137,20 @@ export class AuthorizationService {
       orgContext.membership.role === "ADMIN" ||
       projectRole === "PROJECT_MANAGER";
 
+    const canRunAi =
+      canManage ||
+      (projectRole === "DEVELOPER" &&
+        (project.allowDeveloperAiRuns || Boolean(assignment?.canRunAi)));
+
     if (mode === "manage" && !canManage) {
       throw new ForbiddenException(
         "Only organization owners, admins, or assigned project managers can access project management.",
+      );
+    }
+
+    if (mode === "ai" && !canRunAi) {
+      throw new ForbiddenException(
+        "AI coding agents are restricted to owners, admins, project managers, or developers granted AI access on this project.",
       );
     }
 
@@ -148,6 +160,7 @@ export class AuthorizationService {
         project,
         projectRole,
         canManage,
+        canRunAi,
       },
     };
   }

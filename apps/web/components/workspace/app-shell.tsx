@@ -55,10 +55,22 @@ function buildBreadcrumbs(pathname: string, orgName: string | null) {
     } else if (rest === "/tasks") {
       parts.push({ label: "Project", href: projectBase });
       parts.push({ label: "Tasks" });
+    } else if (/^\/tasks\/([^/]+)\/agent$/.test(rest)) {
+      const taskMatch = /^\/tasks\/([^/]+)\/agent$/.exec(rest);
+      parts.push({ label: "Project", href: projectBase });
+      parts.push({ label: "Tasks", href: `${projectBase}/tasks` });
+      parts.push({ label: "Task", href: `${projectBase}/tasks/${taskMatch?.[1] ?? ""}` });
+      parts.push({ label: "AI Workspace" });
     } else if (rest.startsWith("/tasks/")) {
       parts.push({ label: "Project", href: projectBase });
       parts.push({ label: "Tasks", href: `${projectBase}/tasks` });
       parts.push({ label: "Task detail" });
+    } else if (rest === "/ai") {
+      parts.push({ label: "Project", href: projectBase });
+      parts.push({ label: "AI Agents" });
+    } else if (rest === "/ide") {
+      parts.push({ label: "Project", href: projectBase });
+      parts.push({ label: "Browser IDE" });
     } else if (rest === "/repository") {
       parts.push({ label: "Project", href: projectBase });
       parts.push({ label: "Repository" });

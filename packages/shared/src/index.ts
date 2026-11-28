@@ -25,7 +25,17 @@ export type TaskActivityType =
   | "TASK_ARCHIVED"
   | "TASK_RESTORED"
   | "PR_LINKED"
-  | "PR_UNLINKED";
+  | "PR_UNLINKED"
+  | "AI_RUN_STARTED"
+  | "AI_PLAN_APPROVED"
+  | "AI_PLAN_REJECTED"
+  | "AI_PROPOSAL_READY"
+  | "AI_PROPOSAL_ACCEPTED"
+  | "AI_PROPOSAL_REJECTED"
+  | "WORKSPACE_AI_PATCH_APPLIED"
+  | "COLLAB_SESSION_STARTED"
+  | "COLLAB_SESSION_CLOSED"
+  | "AI_ASSISTANT_PATCH_APPLIED";
 
 export type GitHubInstallationStatus = "ACTIVE" | "SUSPENDED" | "REVOKED";
 export type RepositoryConnectionStatus = "CONNECTED" | "DISCONNECTED" | "ACCESS_REVOKED" | "ERROR";
@@ -118,6 +128,8 @@ export interface TaskDetailDto extends TaskSummaryDto {
   comments: TaskCommentDto[];
   activities: TaskActivityDto[];
   linkedPullRequests?: LinkedPullRequestRefDto[];
+  canRunAi?: boolean;
+  latestAgentRun?: AgentRunSummaryDto | null;
 }
 
 export interface ProjectTaskSummaryDto {
@@ -251,6 +263,7 @@ export interface ProjectPersonDto {
   email: string;
   image: string | null;
   role: ProjectRole;
+  canRunAi?: boolean;
   assignedAt: string;
 }
 
@@ -262,6 +275,8 @@ export interface ProjectSummaryDto {
   slug: string;
   description: string | null;
   status: ProjectStatus;
+  allowDeveloperAiRuns?: boolean;
+  currentUserCanRunAi?: boolean;
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
@@ -519,3 +534,650 @@ export interface PullRequestFilesResponseDto {
   rateLimited: boolean;
   unavailableReason: string | null;
 }
+
+export type AgentRunStatus =
+  | "QUEUED"
+  | "PLANNING"
+  | "AWAITING_APPROVAL"
+  | "RUNNING"
+  | "AWAITING_REVIEW"
+  | "COMPLETED"
+  | "FAILED"
+  | "REJECTED"
+  | "CANCELLED";
+
+export type AgentPlanStatus = "PENDING" | "SUPERSEDED" | "APPROVED" | "REJECTED";
+
+export type AgentProposalStatus =
+  | "PENDING_REVIEW"
+  | "REVISION_REQUESTED"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "SUPERSEDED";
+
+export type AgentTestRunStatus =
+  | "PENDING"
+  | "RUNNING"
+  | "PASSED"
+  | "FAILED"
+  | "SKIPPED"
+  | "UNAVAILABLE";
+
+export type AgentRunEventType =
+  | "RUN_QUEUED"
+  | "CONTEXT_COLLECTED"
+  | "PLAN_GENERATED"
+  | "PLAN_APPROVED"
+  | "PLAN_REJECTED"
+  | "PLAN_REVISION_REQUESTED"
+  | "EXECUTION_CLAIMED"
+  | "PATCH_VALIDATED"
+  | "PATCH_REJECTED"
+  | "REVIEW_GENERATED"
+  | "TESTS_EXECUTED"
+  | "TESTS_UNAVAILABLE"
+  | "PROPOSAL_CREATED"
+  | "PROPOSAL_REVISION_REQUESTED"
+  | "PROPOSAL_ACCEPTED"
+  | "PROPOSAL_REJECTED"
+  | "RUN_CANCELLED"
+  | "RUN_FAILED";
+
+export type AgentStageRole = "PLANNER" | "IMPLEMENTER" | "REVIEWER";
+
+export interface AgentPlanStepDto {
+  order: number;
+  title: string;
+  rationale: string;
+  targetFiles: string[];
+}
+
+export interface AgentContextFileDto {
+  path: string;
+  bytes: number;
+  truncated: boolean;
+}
+
+export interface AgentContextSummaryDto {
+  repoFullName: string;
+  baseBranch: string;
+  baseCommitSha: string | null;
+  indexedFileCount: number;
+  selectedFiles: AgentContextFileDto[];
+  excludedReasonSummary?: string;
+}
+
+export interface AgentPlanDto {
+  id: string;
+  runId: string;
+  version: number;
+  status: AgentPlanStatus;
+  summary: string;
+  steps: AgentPlanStepDto[];
+  targetFiles: string[];
+  risks: string[];
+  suggestedChecks: string[];
+  contextSummary: AgentContextSummaryDto;
+  revisionFeedback: string | null;
+  decidedBy: TaskUserRef | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  createdAt: string;
+}
+
+export interface AgentReviewFindingDto {
+  severity: "INFO" | "WARNING" | "CRITICAL";
+  file: string | null;
+  message: string;
+}
+
+export interface AgentProposalDto {
+  id: string;
+  runId: string;
+  planId: string;
+  version: number;
+  status: AgentProposalStatus;
+  summary: string;
+  reviewSummary: string;
+  reviewFindings: AgentReviewFindingDto[];
+  changedFiles: PullRequestChangedFileDto[];
+  rawPatch: string;
+  filesChangedCount: number;
+  additionsCount: number;
+  deletionsCount: number;
+  baseCommitSha: string;
+  revisionFeedback: string | null;
+  reviewedBy: TaskUserRef | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+export interface AgentTestRunDto {
+  id: string;
+  runId: string;
+  proposalId: string | null;
+  status: AgentTestRunStatus;
+  command: string | null;
+  exitCode: number | null;
+  durationMs: number | null;
+  stdoutExcerpt: string | null;
+  stderrExcerpt: string | null;
+  explanation: string;
+  sandboxed: boolean;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface AgentRunEventDto {
+  id: string;
+  runId: string;
+  eventType: AgentRunEventType;
+  statusFrom: AgentRunStatus | null;
+  statusTo: AgentRunStatus | null;
+  message: string;
+  metadata: Record<string, unknown> | null;
+  actor: TaskUserRef | null;
+  createdAt: string;
+}
+
+export interface AgentUsageRecordDto {
+  id: string;
+  runId: string;
+  stageRole: AgentStageRole;
+  provider: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: string;
+  latencyMs: number;
+  createdAt: string;
+}
+
+export interface AgentUsageTotalsDto {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: string;
+  callCount: number;
+}
+
+export interface AgentRunSummaryDto {
+  id: string;
+  organizationId: string;
+  projectId: string;
+  taskId: string;
+  status: AgentRunStatus;
+  requestedPhase: string;
+  currentStage: string | null;
+  repoFullName: string;
+  baseBranch: string;
+  baseCommitSha: string | null;
+  taskSnapshotTitle: string;
+  provider: string;
+  model: string;
+  triggeredBy: TaskUserRef | null;
+  attemptCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  usageTotals: AgentUsageTotalsDto;
+}
+
+export interface AgentRunDetailDto extends AgentRunSummaryDto {
+  taskIdentifier: string;
+  taskTitle: string;
+  taskStatus: TaskStatus;
+  taskPriority: TaskPriority;
+  userInstructions: string | null;
+  canControlRun: boolean;
+  isStaleContext: boolean;
+  staleReason: string | null;
+  activePlan: AgentPlanDto | null;
+  plans: AgentPlanDto[];
+  activeProposal: AgentProposalDto | null;
+  proposals: AgentProposalDto[];
+  testRuns: AgentTestRunDto[];
+  events: AgentRunEventDto[];
+  usageRecords: AgentUsageRecordDto[];
+}
+
+export interface AgentCapabilityStatusDto {
+  projectId: string;
+  taskId?: string;
+  canTriggerAi: boolean;
+  canApproveAi: boolean;
+  canManageAiPolicy: boolean;
+  allowDeveloperAiRuns: boolean;
+  aiConfigured: boolean;
+  provider: string | null;
+  model: string | null;
+  repositoryConnected: boolean;
+  repoFullName: string | null;
+  defaultBranch: string | null;
+  sandboxEnabled: boolean;
+  sandboxAvailable: boolean;
+  sandboxReason: string;
+  workerStatus: "ONLINE" | "IDLE" | "OFFLINE" | "UNKNOWN";
+  blockingReasons: string[];
+}
+
+export interface TaskAgentWorkspaceDto {
+  task: TaskDetailDto;
+  capability: AgentCapabilityStatusDto;
+  runs: AgentRunSummaryDto[];
+  selectedRun: AgentRunDetailDto | null;
+}
+
+export interface ProjectAiOverviewDto {
+  capability: AgentCapabilityStatusDto;
+  runs: AgentRunSummaryDto[];
+  usageSummary: AgentUsageTotalsDto;
+}
+
+export type DevWorkspaceStatus =
+  | "CREATING"
+  | "READY"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "STOPPED"
+  | "FAILED"
+  | "EXPIRED";
+
+export type WorkspaceStorageMode = "EPHEMERAL" | "LOCAL_VOLUME" | "DURABLE";
+export type WorkspaceSnapshotStatus = "AVAILABLE" | "RESTORED" | "EXPIRED" | "MISSING";
+export type WorkspaceEventType =
+  | "WORKSPACE_CREATED"
+  | "REPOSITORY_INITIALIZED"
+  | "WORKSPACE_RESUMED"
+  | "WORKSPACE_SUSPENDED"
+  | "WORKSPACE_STOPPED"
+  | "WORKSPACE_DELETED"
+  | "WORKSPACE_FAILED"
+  | "SNAPSHOT_CREATED"
+  | "SNAPSHOT_RESTORED"
+  | "FILE_SAVED"
+  | "FILE_CREATED"
+  | "FILE_RENAMED"
+  | "FILE_DELETED"
+  | "GIT_STAGE_CHANGED"
+  | "GIT_COMMIT_CREATED"
+  | "GIT_BRANCH_SWITCHED"
+  | "AI_PATCH_APPLIED"
+  | "TERMINAL_SESSION_STARTED"
+  | "TERMINAL_SESSION_ENDED"
+  | "TERMINAL_REJECTED"
+  | "COLLAB_SESSION_STARTED"
+  | "COLLAB_SESSION_CLOSED"
+  | "COLLAB_PARTICIPANT_JOINED"
+  | "COLLAB_PARTICIPANT_REVOKED"
+  | "COLLAB_FILE_FLUSHED"
+  | "AI_ASSISTANT_PATCH_APPLIED";
+
+export interface WorkspaceRuntimeCapabilitiesDto {
+  workerConfigured: boolean;
+  workerReachable: boolean;
+  workerReason: string;
+  gitAvailable: boolean;
+  sandboxAvailable: boolean;
+  sandboxReason: string;
+  terminalAvailable: boolean;
+  terminalReason: string;
+  storageMode: WorkspaceStorageMode;
+  storageWarning: string | null;
+  maxFileBytes: number;
+}
+
+export interface WorkspaceSnapshotDto {
+  id: string;
+  workspaceId: string;
+  baseCommitSha: string;
+  branchName: string;
+  status: WorkspaceSnapshotStatus;
+  sizeBytes: number;
+  checksumSha256: string;
+  trackedFileCount: number;
+  untrackedFileCount: number;
+  createdBy: TaskUserRef | null;
+  createdAt: string;
+  restoredAt: string | null;
+}
+
+export interface WorkspaceEventDto {
+  id: string;
+  workspaceId: string;
+  eventType: WorkspaceEventType;
+  message: string;
+  actor: TaskUserRef | null;
+  createdAt: string;
+}
+
+export interface DevWorkspaceDto {
+  id: string;
+  organizationId: string;
+  projectId: string;
+  projectRepositoryId: string | null;
+  ownerId: string;
+  owner: TaskUserRef;
+  taskId: string | null;
+  name: string;
+  status: DevWorkspaceStatus;
+  storageMode: WorkspaceStorageMode;
+  storageWarning: string | null;
+  repoFullName: string;
+  baseBranch: string;
+  baseCommitSha: string | null;
+  currentBranch: string | null;
+  lastCommitSha: string | null;
+  dirtyFileCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  lastActiveAt: string;
+  suspendedAt: string | null;
+  stoppedAt: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  canWrite: boolean;
+  canManage: boolean;
+  canUseTerminal: boolean;
+  directoryPresent: boolean;
+  snapshots: WorkspaceSnapshotDto[];
+  recentEvents: WorkspaceEventDto[];
+}
+
+export interface WorkspaceTreeEntryDto {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size: number;
+  isBinary: boolean;
+  children?: WorkspaceTreeEntryDto[];
+}
+
+export interface WorkspaceFileContentDto {
+  path: string;
+  name: string;
+  content: string;
+  versionHash: string;
+  size: number;
+  isBinary: boolean;
+  isTooLarge: boolean;
+  language: string;
+}
+
+export interface WorkspaceSearchMatchDto {
+  path: string;
+  name: string;
+  lineNumber: number | null;
+  preview: string | null;
+}
+
+export interface WorkspaceGitFileChangeDto {
+  path: string;
+  previousPath: string | null;
+  stagedStatus: string | null;
+  unstagedStatus: string | null;
+  untracked: boolean;
+}
+
+export interface WorkspaceGitCommitDto {
+  sha: string;
+  shortSha: string;
+  message: string;
+  authorName: string;
+  authoredAt: string;
+}
+
+export interface WorkspaceGitStatusDto {
+  branch: string;
+  headSha: string;
+  branches: string[];
+  stagedCount: number;
+  unstagedCount: number;
+  untrackedCount: number;
+  files: WorkspaceGitFileChangeDto[];
+  recentCommits: WorkspaceGitCommitDto[];
+  remotePushAllowed: false;
+}
+
+export interface WorkspaceGitDiffDto {
+  path: string | null;
+  scope: "unstaged" | "staged" | "commit";
+  files: PullRequestChangedFileDto[];
+  rawDiff: string;
+}
+
+export interface IdeReviewableProposalDto {
+  runId: string;
+  taskId: string;
+  taskIdentifier: string;
+  taskTitle: string;
+  proposal: AgentProposalDto;
+}
+
+export interface ProjectIdeOverviewDto {
+  project: ProjectDetailDto;
+  capabilities: WorkspaceRuntimeCapabilitiesDto;
+  workspaces: DevWorkspaceDto[];
+  tasks: TaskSummaryDto[];
+  proposals: IdeReviewableProposalDto[];
+}
+
+export interface WorkspaceTerminalTicketDto {
+  sessionId: string;
+  wsUrl: string;
+  token: string;
+  expiresAt: string;
+  sandboxed: boolean;
+  explanation: string;
+}
+
+export type CollabSessionStatus = "ACTIVE" | "CLOSED";
+export type CollabRole = "OWNER" | "EDITOR" | "VIEWER";
+export type CollabParticipantStatus = "ACTIVE" | "LEFT" | "REMOVED";
+
+export type CollabConnectionState =
+  | "IDLE"
+  | "CONNECTING"
+  | "CONNECTED"
+  | "RECONNECTING"
+  | "OFFLINE"
+  | "SYNC_DELAYED"
+  | "PERMISSION_REVOKED"
+  | "SESSION_CLOSED";
+
+export interface CollabParticipantDto {
+  id: string;
+  sessionId: string;
+  userId: string;
+  user: TaskUserRef;
+  role: CollabRole;
+  status: CollabParticipantStatus;
+  colorHex: string;
+  joinedAt: string;
+  leftAt: string | null;
+  revokedAt: string | null;
+  revokedReason: string | null;
+  lastSeenAt: string;
+}
+
+export interface CollabDocumentDto {
+  id: string;
+  sessionId: string;
+  filePath: string;
+  docKey: string;
+  versionSeq: number;
+  contentSha256: string;
+  lastModifiedById: string | null;
+  deletedAt: string | null;
+  lastSavedAt: string;
+}
+
+export interface CollabMessageDto {
+  id: string;
+  sessionId: string;
+  author: TaskUserRef | null;
+  body: string;
+  filePath: string | null;
+  lineNumber: number | null;
+  createdAt: string;
+}
+
+export interface CollabSessionSummaryDto {
+  id: string;
+  organizationId: string;
+  projectId: string;
+  workspaceId: string;
+  workspaceName: string;
+  taskId: string | null;
+  taskIdentifier: string | null;
+  title: string;
+  status: CollabSessionStatus;
+  activeFilePath: string | null;
+  participantCount: number;
+  myRole: CollabRole | null;
+  myStatus: CollabParticipantStatus | null;
+  createdBy: TaskUserRef;
+  lastActivityAt: string;
+  closedAt: string | null;
+  createdAt: string;
+}
+
+export interface CollabSessionDetailDto extends CollabSessionSummaryDto {
+  participants: CollabParticipantDto[];
+  documents: CollabDocumentDto[];
+  messages: CollabMessageDto[];
+  eligibleInvitees: TaskUserRef[];
+}
+
+export interface CollabWsTicketDto {
+  sessionId: string;
+  workspaceId: string;
+  role: CollabRole;
+  colorHex: string;
+  wsUrl: string;
+  token: string;
+  expiresAt: string;
+  user: TaskUserRef;
+}
+
+export type AiMessageRole = "USER" | "ASSISTANT" | "SYSTEM";
+export type AiInlineActionKind = "CHAT" | "EXPLAIN" | "IMPROVE" | "FIND_BUGS" | "GENERATE_TESTS";
+export type AiMessageStatus = "STREAMING" | "COMPLETED" | "CANCELLED" | "FAILED";
+
+export interface AiAssistantCitationDto {
+  filePath: string;
+  startLine: number | null;
+  endLine: number | null;
+  label: string;
+}
+
+export interface AiAssistantAttachedContextDto {
+  projectId: string;
+  projectName: string;
+  taskId: string | null;
+  taskIdentifier: string | null;
+  taskTitle: string | null;
+  prId: string | null;
+  prNumber: number | null;
+  prTitle: string | null;
+  activeFilePath: string | null;
+  selection: {
+    startLine: number;
+    endLine: number;
+    charCount: number;
+  } | null;
+  includedFiles: Array<{
+    path: string;
+    bytes: number;
+    sha256: string;
+    truncated: boolean;
+  }>;
+  includedLocalDiff: boolean;
+  excludedSensitiveCount: number;
+  totalContextBytes: number;
+  estimatedInputTokens: number;
+  truncatedReason: string | null;
+}
+
+export interface AiAssistantProposalFileDto {
+  path: string;
+  operation: "create" | "modify" | "delete";
+  additions: number;
+  deletions: number;
+}
+
+export interface AiAssistantProposalDto {
+  id: string;
+  summary: string;
+  unifiedDiff: string;
+  targetFiles: AiAssistantProposalFileDto[];
+  baseFileHashes: Record<string, string | null>;
+  appliedAt: string | null;
+  appliedById: string | null;
+  conflictReason: string | null;
+}
+
+export interface AiMessageDto {
+  id: string;
+  conversationId: string;
+  author: TaskUserRef | null;
+  role: AiMessageRole;
+  actionKind: AiInlineActionKind;
+  status: AiMessageStatus;
+  content: string;
+  errorMessage: string | null;
+  attachedContext: AiAssistantAttachedContextDto | null;
+  citations: AiAssistantCitationDto[];
+  proposal: AiAssistantProposalDto | null;
+  provider: string | null;
+  model: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  latencyMs: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiConversationSummaryDto {
+  id: string;
+  organizationId: string;
+  projectId: string;
+  userId: string;
+  workspaceId: string | null;
+  taskId: string | null;
+  collabSessionId: string | null;
+  title: string;
+  isSharedWithSession: boolean;
+  lastActiveFile: string | null;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiConversationDetailDto extends AiConversationSummaryDto {
+  messages: AiMessageDto[];
+}
+
+export interface AiAssistantStatusDto {
+  configured: boolean;
+  provider: string | null;
+  model: string | null;
+  canRunAi: boolean;
+  reason: string;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  estimatedCostUsd: string;
+}
+
+export type AiAssistantStreamEventDto =
+  | { type: "meta"; conversationId: string; userMessageId: string; assistantMessageId: string; provider: string; model: string }
+  | { type: "context"; attachedContext: AiAssistantAttachedContextDto }
+  | { type: "delta"; text: string }
+  | { type: "done"; message: AiMessageDto }
+  | { type: "error"; message: string; status?: "CANCELLED" | "FAILED" };

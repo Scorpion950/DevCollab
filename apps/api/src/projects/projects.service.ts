@@ -253,11 +253,31 @@ export class ProjectsService {
     actorOrgRole: OrganizationRole,
     orgId: string,
     projectId: string,
-    body: { name?: unknown; key?: unknown; description?: unknown },
+    body: {
+      name?: unknown;
+      key?: unknown;
+      description?: unknown;
+      allowDeveloperAiRuns?: unknown;
+    },
   ): Promise<ProjectDetailDto> {
-    const name = requireProjectName(body?.name);
-    const description = optionalDescription(body?.description, 1000);
     const isOrgAdmin = actorOrgRole === "OWNER" || actorOrgRole === "ADMIN";
+    const aiPolicyOnly =
+      body?.allowDeveloperAiRuns !== undefined &&
+      body?.name === undefined &&
+      body?.key === undefined &&
+      body?.description === undefined;
+
+    if (body?.allowDeveloperAiRuns !== undefined && typeof body.allowDeveloperAiRuns !== "boolean") {
+      throw new BadRequestException("allowDeveloperAiRuns must be a boolean.");
+    }
+    const allowDeveloperAiRuns =
+      typeof body?.allowDeveloperAiRuns === "boolean" ? body.allowDeveloperAiRuns : undefined;
+
+    const name = aiPolicyOnly ? undefined : requireProjectName(body?.name);
+    const description =
+      aiPolicyOnly || body?.description === undefined
+        ? undefined
+        : optionalDescription(body?.description, 1000);
 
     let keyUpdate: string | undefined;
     if (body?.key !== undefined) {
@@ -278,9 +298,10 @@ export class ProjectsService {
         await tx.project.update({
           where: { id: projectId },
           data: {
-            name,
-            description,
+            ...(name !== undefined ? { name } : {}),
+            ...(description !== undefined ? { description } : {}),
             ...(keyUpdate ? { key: keyUpdate } : {}),
+            ...(allowDeveloperAiRuns !== undefined ? { allowDeveloperAiRuns } : {}),
           },
         });
 
@@ -289,8 +310,10 @@ export class ProjectsService {
             organizationId: orgId,
             projectId,
             actorId: actorUserId,
-            action: "PROJECT_UPDATED",
-            summary: `Updated settings for project ${name}`,
+            action: aiPolicyOnly ? "PROJECT_AI_POLICY_UPDATED" : "PROJECT_UPDATED",
+            summary: aiPolicyOnly
+              ? `${allowDeveloperAiRuns ? "Enabled" : "Disabled"} project-wide AI execution for assigned developers on ${existing.name}`
+              : `Updated settings for project ${name ?? existing.name}`,
           },
         });
 
@@ -377,7 +400,7 @@ export class ProjectsService {
     actorProjectRole: ProjectRole | null,
     orgId: string,
     projectId: string,
-    body: { userId?: unknown; role?: unknown },
+    body: { userId?: unknown; role?: unknown; canRunAi?: unknown },
   ): Promise<ProjectDetailDto> {
     if (typeof body?.userId !== "string" || !body.userId.trim()) {
       throw new BadRequestException("Member selection is required.");
@@ -385,8 +408,17 @@ export class ProjectsService {
     if (body?.role !== "PROJECT_MANAGER" && body?.role !== "DEVELOPER") {
       throw new BadRequestException("Project role must be PROJECT_MANAGER or DEVELOPER.");
     }
+    if (body?.canRunAi !== undefined && typeof body.canRunAi !== "boolean") {
+      throw new BadRequestException("canRunAi must be a boolean.");
+    }
     const targetUserId = body.userId.trim();
     const targetRole: ProjectRole = body.role;
+    const requestedCanRunAi =
+      targetRole === "PROJECT_MANAGER"
+        ? true
+        : typeof body?.canRunAi === "boolean"
+          ? body.canRunAi
+          : undefined;
 
     const project = await this.db.prisma.$transaction(async (tx) => {
       const targetMembership = await tx.organizationMembership.findUnique({
@@ -424,11 +456,16 @@ export class ProjectsService {
 
       await tx.projectRoleAssignment.upsert({
         where: { projectId_userId: { projectId, userId: targetUserId } },
-        update: { role: targetRole, assignedById: actorUserId },
+        update: {
+          role: targetRole,
+          assignedById: actorUserId,
+          ...(requestedCanRunAi !== undefined ? { canRunAi: requestedCanRunAi } : {}),
+        },
         create: {
           projectId,
           userId: targetUserId,
           role: targetRole,
+          canRunAi: requestedCanRunAi ?? false,
           assignedById: actorUserId,
         },
       });

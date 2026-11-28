@@ -2,7 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/.next/**", "**/generated/**", "**/node_modules/**"] },
+  { ignores: ["**/dist/**", "**/.next/**", "**/generated/**", "**/node_modules/**", "**/public/monaco/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
 );

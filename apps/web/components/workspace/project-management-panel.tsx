@@ -18,6 +18,7 @@ import {
   removeProjectRoleAction,
   setProjectArchiveAction,
   updateProjectAction,
+  updateProjectAiPolicyAction,
   type ActionState,
 } from "@/app/app/actions";
 import { Button } from "@/components/ui/button";
@@ -308,6 +309,7 @@ export function ProjectManagementPanel({
                     <tr>
                       <th>Member</th>
                       <th>Project role</th>
+                      <th>AI access</th>
                       <th>Assigned</th>
                       <th style={{ textAlign: "right" }}>Actions</th>
                     </tr>
@@ -317,6 +319,10 @@ export function ProjectManagementPanel({
                       const canRemove =
                         canAssignProjectManager ||
                         (canAssignDeveloper && person.role === "DEVELOPER");
+                      const devAiAllowed =
+                        person.role === "PROJECT_MANAGER" ||
+                        Boolean(project.allowDeveloperAiRuns) ||
+                        Boolean(person.canRunAi);
                       return (
                         <tr key={person.userId}>
                           <td>
@@ -338,6 +344,42 @@ export function ProjectManagementPanel({
                             >
                               {person.role === "PROJECT_MANAGER" ? "Project Manager" : "Developer"}
                             </span>
+                          </td>
+                          <td>
+                            {person.role === "PROJECT_MANAGER" ? (
+                              <span className="badge badge-accent">Always enabled</span>
+                            ) : canAssignDeveloper ? (
+                              <button
+                                type="button"
+                                className={`badge ${devAiAllowed ? "badge-accent" : ""}`}
+                                disabled={busy || Boolean(project.allowDeveloperAiRuns)}
+                                title={
+                                  project.allowDeveloperAiRuns
+                                    ? "Enabled for all developers by project policy"
+                                    : "Toggle AI agent execution permission for this developer"
+                                }
+                                onClick={() => {
+                                  startTransition(async () => {
+                                    const res = await assignProjectRoleAction(
+                                      orgId,
+                                      project.id,
+                                      person.userId,
+                                      "DEVELOPER",
+                                      !person.canRunAi,
+                                    );
+                                    setFeedback(res);
+                                  });
+                                }}
+                              >
+                                {project.allowDeveloperAiRuns
+                                  ? "Via project policy"
+                                  : person.canRunAi
+                                    ? "Granted (toggle)"
+                                    : "Restricted (grant)"}
+                              </button>
+                            ) : (
+                              <span className="badge">{devAiAllowed ? "Granted" : "Restricted"}</span>
+                            )}
                           </td>
                           <td style={{ fontFamily: "var(--mono-font)", fontSize: ".78rem" }}>
                             {formatDate(person.assignedAt)}
@@ -421,9 +463,34 @@ export function ProjectManagementPanel({
               <span className="badge priority-low">Low: {taskSummary.priorityBreakdown.LOW}</span>
             </div>
 
-            <div className="banner banner-neutral" style={{ fontSize: ".83rem" }}>
-              Pull request activity, test runs, AI agent executions, and AI spend remain upcoming
-              milestones.
+            <div className="banner banner-neutral" style={{ fontSize: ".83rem", flexDirection: "column", alignItems: "flex-start", gap: ".55rem" }}>
+              <div>
+                <strong>AI Agent Developer Policy:</strong> Owners, Admins, and Project Managers can
+                always trigger and review AI agent runs.{" "}
+                {project.allowDeveloperAiRuns
+                  ? "Currently enabled for all assigned Developers."
+                  : "Currently restricted to explicitly granted Developers."}
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="compact"
+                disabled={busy}
+                onClick={() => {
+                  startTransition(async () => {
+                    const res = await updateProjectAiPolicyAction(
+                      orgId,
+                      project.id,
+                      !project.allowDeveloperAiRuns,
+                    );
+                    setFeedback(res);
+                  });
+                }}
+              >
+                {project.allowDeveloperAiRuns
+                  ? "Restrict developer AI runs to explicit grants"
+                  : "Allow all assigned developers to run AI"}
+              </Button>
             </div>
           </section>
 

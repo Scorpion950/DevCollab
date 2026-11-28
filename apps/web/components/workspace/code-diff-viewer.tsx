@@ -44,26 +44,26 @@ export function CodeDiffViewer({
   truncatedResponse,
   comments,
   canReview,
-  onSelectLineAnchor,
-  activeAnchor,
-  onClearAnchor,
-  inlineCommentDraft,
-  onChangeInlineDraft,
-  onSubmitInlineComment,
-  commentBusy,
+  onSelectLineAnchor = () => {},
+  activeAnchor = null,
+  onClearAnchor = () => {},
+  inlineCommentDraft = "",
+  onChangeInlineDraft = () => {},
+  onSubmitInlineComment = (e) => e.preventDefault(),
+  commentBusy = false,
 }: {
   files: PullRequestChangedFileDto[];
-  prHtmlUrl: string;
+  prHtmlUrl?: string;
   truncatedResponse: boolean;
   comments: PullRequestReviewCommentDto[];
   canReview: boolean;
-  onSelectLineAnchor: (anchor: LineCommentAnchor) => void;
-  activeAnchor: LineCommentAnchor | null;
-  onClearAnchor: () => void;
-  inlineCommentDraft: string;
-  onChangeInlineDraft: (value: string) => void;
-  onSubmitInlineComment: (event: React.FormEvent) => void;
-  commentBusy: boolean;
+  onSelectLineAnchor?: (anchor: LineCommentAnchor) => void;
+  activeAnchor?: LineCommentAnchor | null;
+  onClearAnchor?: () => void;
+  inlineCommentDraft?: string;
+  onChangeInlineDraft?: (value: string) => void;
+  onSubmitInlineComment?: (event: React.FormEvent) => void;
+  commentBusy?: boolean;
 }) {
   const [viewMode, setViewMode] = useState<"unified" | "split">("unified");
   const [fileQuery, setFileQuery] = useState("");
@@ -259,7 +259,7 @@ function DiffFileCard({
   onChangeInlineDraft: (value: string) => void;
   onSubmitInlineComment: (event: React.FormEvent) => void;
   commentBusy: boolean;
-  prHtmlUrl: string;
+  prHtmlUrl?: string;
 }) {
   const { label, cls, Icon } = statusBadgeMeta(file.status);
   const parsedLines = useMemo(
@@ -379,15 +379,17 @@ function DiffFileCard({
         <div className="inline-actions" style={{ gap: ".6rem" }}>
           <span className="diff-stat-add">+{file.additions}</span>
           <span className="diff-stat-del">-{file.deletions}</span>
-          <a
-            href={githubFileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-action-link inline-actions"
-            style={{ gap: ".25rem" }}
-          >
-            GitHub <ExternalLink size={12} />
-          </a>
+          {githubFileUrl && (
+            <a
+              href={githubFileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-action-link inline-actions"
+              style={{ gap: ".25rem" }}
+            >
+              GitHub <ExternalLink size={12} />
+            </a>
+          )}
         </div>
       </header>
 

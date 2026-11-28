@@ -82,6 +82,7 @@ export function toOrganizationMemberDto(input: {
 export function toProjectPersonDto(input: {
   userId: string;
   role: ProjectRole;
+  canRunAi?: boolean;
   createdAt: Date;
   user: { id: string; name: string | null; email: string; image: string | null };
 }): ProjectPersonDto {
@@ -91,6 +92,7 @@ export function toProjectPersonDto(input: {
     email: input.user.email,
     image: input.user.image,
     role: input.role,
+    canRunAi: Boolean(input.canRunAi),
     assignedAt: input.createdAt.toISOString(),
   };
 }
@@ -104,12 +106,14 @@ export function toProjectSummaryDto(
     slug: string;
     description: string | null;
     status: ProjectStatus;
+    allowDeveloperAiRuns?: boolean;
     createdAt: Date;
     updatedAt: Date;
     archivedAt: Date | null;
     roleAssignments: Array<{
       userId: string;
       role: ProjectRole;
+      canRunAi?: boolean;
       createdAt: Date;
       user: { id: string; name: string | null; email: string; image: string | null };
     }>;
@@ -124,6 +128,11 @@ export function toProjectSummaryDto(
     actorOrgRole === "OWNER" ||
     actorOrgRole === "ADMIN" ||
     currentAssignment?.role === "PROJECT_MANAGER";
+  const allowDeveloperAiRuns = Boolean(project.allowDeveloperAiRuns);
+  const currentUserCanRunAi =
+    canManageProject ||
+    (currentAssignment?.role === "DEVELOPER" &&
+      (allowDeveloperAiRuns || Boolean(currentAssignment.canRunAi)));
 
   return {
     id: project.id,
@@ -133,6 +142,8 @@ export function toProjectSummaryDto(
     slug: project.slug,
     description: project.description,
     status: project.status,
+    allowDeveloperAiRuns,
+    currentUserCanRunAi,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
     archivedAt: project.archivedAt ? project.archivedAt.toISOString() : null,
@@ -151,6 +162,7 @@ export function toProjectDetailDto(
     slug: string;
     description: string | null;
     status: ProjectStatus;
+    allowDeveloperAiRuns?: boolean;
     createdAt: Date;
     updatedAt: Date;
     archivedAt: Date | null;
@@ -158,6 +170,7 @@ export function toProjectDetailDto(
     roleAssignments: Array<{
       userId: string;
       role: ProjectRole;
+      canRunAi?: boolean;
       createdAt: Date;
       user: { id: string; name: string | null; email: string; image: string | null };
     }>;

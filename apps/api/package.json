@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
-    "test": "nest build && node --test test/identity.test.cjs test/rbac-and-domain.test.cjs test/tasks.test.cjs test/github.test.cjs",
+    "test": "nest build && node --test test/identity.test.cjs test/rbac-and-domain.test.cjs test/tasks.test.cjs test/github.test.cjs test/ai.test.cjs test/workspaces.test.cjs test/brick8-collab-ai.test.cjs",
     "build": "nest build",
     "start": "node dist/main.js",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@devcollab/ai-core": "workspace:*",
     "@devcollab/shared": "workspace:*",
     "@nestjs/common": "^11.1.0",
     "@nestjs/config": "^4.0.0",

@@ -110,7 +110,13 @@ export class ProjectsController {
     @Req() request: ScopedRequest,
     @Param("orgId") orgId: string,
     @Param("projectId") projectId: string,
-    @Body() body: { name?: unknown; key?: unknown; description?: unknown },
+    @Body()
+    body: {
+      name?: unknown;
+      key?: unknown;
+      description?: unknown;
+      allowDeveloperAiRuns?: unknown;
+    },
   ) {
     if (!request.userId || !request.orgContext) throw new UnauthorizedException();
     return this.projects.updateProject(
@@ -167,7 +173,7 @@ export class ProjectsController {
     @Req() request: ScopedRequest,
     @Param("orgId") orgId: string,
     @Param("projectId") projectId: string,
-    @Body() body: { userId?: unknown; role?: unknown },
+    @Body() body: { userId?: unknown; role?: unknown; canRunAi?: unknown },
   ) {
     if (!request.userId || !request.orgContext || !request.projectContext) {
       throw new UnauthorizedException();
